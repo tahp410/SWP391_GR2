@@ -15,11 +15,11 @@ function App() {
       <Routes>
         <Route 
           path="/" 
-          element={isAuthenticated ? <Navigate to={<HomePage />} /> : <Login />} 
+          element={isAuthenticated ? <Navigate to="/home" /> : <Login />} 
         />
         <Route 
           path="/home" 
-          element={isAuthenticated ? <HomePage /> : <Navigate to={<HomePage />}/>} 
+          element={isAuthenticated ? <HomePage /> : <Navigate to="/"/>} 
         />
         <Route 
           path="/change-password" 
@@ -27,7 +27,7 @@ function App() {
         />
         <Route 
           path="/profile" 
-          element={isAuthenticated ? <Profile /> : <Navigate to={<Profile/>} />} 
+          element={isAuthenticated ? <Profile /> : <Navigate to="/profile" />} 
         />
       </Routes>
     </Router>
