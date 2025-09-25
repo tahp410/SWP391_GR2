@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-
+import { useNavigate } from 'react-router-dom';
 const ChangePasswordScreen = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -312,7 +313,7 @@ const ChangePasswordScreen = () => {
 
           {/* Footer */}
           <div className="mt-6 text-center">
-            <button className="text-gray-400 hover:text-yellow-400 transition-colors text-sm">
+            <button type="button" className="text-gray-400 hover:text-yellow-400 transition-colors text-sm" onClick={() => navigate('/profile')}>
               ← Quay lại trang cá nhân
             </button>
           </div>

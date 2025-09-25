@@ -195,6 +195,7 @@ body {
   align-items: center;
   gap: 1rem;
   margin-bottom: 2rem;
+  color: #ffffff;
 }
 
 .section-icon {
@@ -269,6 +270,7 @@ body {
   font-size: 1.3rem;
   font-weight: bold;
   margin-bottom: 0.5rem;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .movie-details {
@@ -473,7 +475,7 @@ body {
 
 .footer-content {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   max-width: 1200px;
   margin: 0 auto;
@@ -585,6 +587,7 @@ body {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
+    
   }
   
   .movie-details {
