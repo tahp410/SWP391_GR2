@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './login';
 import Homepage from './Homepage';
 import ChangePassword from './changePassword';
+import Register from './Register';
 
 function App() {
   const isAuthenticated = !!localStorage.getItem('token');
@@ -21,6 +22,10 @@ function App() {
         <Route 
           path="/change-password" 
           element={isAuthenticated ? <ChangePassword /> : <Navigate to="/" />} 
+        />
+        <Route
+          path="/register"
+          element={isAuthenticated ? <Navigate to="/home" /> : <Register />} 
         />
       </Routes>
     </Router>

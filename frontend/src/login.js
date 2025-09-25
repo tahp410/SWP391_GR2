@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, Film, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-
+import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -285,8 +286,11 @@ const Login = () => {
             <div className="text-center pt-4">
               <p className="text-gray-400">
                 Chưa có tài khoản?{' '}
-                <button className="text-yellow-400 hover:text-yellow-300 font-medium transition-colors">
-                  Đăng ký ngay
+                <button
+                  type="button"
+                  className="text-yellow-400 hover:text-yellow-300 font-medium transition-colors"
+                  onClick={() => navigate('/Register')}>
+                        Đăng ký ngay
                 </button>
               </p>
             </div>
