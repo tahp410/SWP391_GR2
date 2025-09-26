@@ -1,20 +1,20 @@
 import React from 'react';
-import { useState } from 'react';
+
 
 const homepage = () => {
   const movieData = {
-    title: "Mưa đỏ",
+    title: "Adventure Time",
     duration: "1h 30min",
-    language: "Vietnamese",
-    subtitle: "Vie-Eng",
+    language: "English",
+    subtitle: "Thai-Eng",
     rating: "PG-13",
-    genre: "Action"
+    genre: "Animation"
   };
 
   const MovieCard = ({ movie, showTime }) => (
     <div className="movie-card">
       <div className="movie-poster">
-        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR94P03AG0zs3-8BOb2svbBfqSp9rGhZcRYig&s" alt={movie.title} />
+        <img src="/api/placeholder/200/280" alt={movie.title} />
       </div>
       <div className="movie-info">
         <h3>{movie.title}</h3>
@@ -43,15 +43,17 @@ const homepage = () => {
       <header className="header">
         <div className="header-content">
           <div className="logo">
-            <span className="cgv-logo">CGV</span>
+            <img src="/api/placeholder/80/40" alt="CGV" />
           </div>
           <nav className="navigation">
-            <a href="">Movies</a>
+            <a href="/profile">Movies</a>
             <a href="#cinemas">Cinemas</a>
             <a href="#showtimes">Showtimes</a>
           </nav>
           <div className="header-actions">
-            <a href="/profile" className="profile-btn" aria-label="Profile">👤</a>
+            <button className="search-btn">🔍</button>
+            <button className="profile-btn">👤</button>
+            <button className="theme-btn">🌙</button>
           </div>
         </div>
       </header>
@@ -168,16 +170,12 @@ const homepage = () => {
         </section>
 
         {/* Final CTA */}
-        <section className="hero">
-  <img
-    className="hero-img"
-    src="https://cdn.xanhsm.com/2025/02/41a5e159-cgv-vincom-nguyen-chi-thanh-2.jpg"
-    alt="CGV background"
-  />
-  <div className="hero-overlay"></div>
-
-  
-</section>
+        <section className="final-cta">
+          <h2>Movie viewing color to your life</h2>
+          <div className="cgv-logo-large">
+            <img src="/api/placeholder/120/60" alt="CGV" />
+          </div>
+        </section>
       </main>
 
       {/* Footer */}
@@ -190,7 +188,12 @@ const homepage = () => {
             <a href="#privacy">Privacy Policy</a>
             <a href="#terms">Terms & Conditions</a>
           </div>
-
+          <div className="social-links">
+            <a href="#facebook">📘</a>
+            <a href="#instagram">📷</a>
+            <a href="#youtube">📺</a>
+            <a href="#twitter">🐦</a>
+          </div>
         </div>
         <div className="footer-bottom">
           <p>CGV © 2024 All rights reserved</p>
