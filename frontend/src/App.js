@@ -2,10 +2,11 @@ import './App.css';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './login';
 import ChangePassword from './changePassword';
-import HomePage from "./component/HomePage"
-import Profile from "./component/Profile"
+import HomePage from "./component/HomePage";
+import Profile from "./component/Profile";
 import './style/homepage.css';
 import './style/profile.css';
+import Register from './Register';
 
 function App() {
   const isAuthenticated = !!localStorage.getItem('token');
@@ -27,7 +28,11 @@ function App() {
         />
         <Route 
           path="/profile" 
-          element={isAuthenticated ? <Profile /> : <Navigate to="/profile" />} 
+          element={isAuthenticated ? <Profile /> : <Navigate to="/" />} 
+        />
+        <Route
+          path="/register"
+          element={isAuthenticated ? <Navigate to="/home" /> : <Register />} 
         />
       </Routes>
     </Router>
