@@ -175,6 +175,7 @@ const handleUpdateProfile = async () => {
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   disabled={!isEditing}
+                  style={isEditing ? { color: '#000', background: '#fff', opacity: 1 } : {}}
                 />
               </div>
 
@@ -186,6 +187,7 @@ const handleUpdateProfile = async () => {
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   disabled={!isEditing}
+                  style={isEditing ? { color: '#000', background: '#fff', opacity: 1 } : {}}
                 />
               </div>
 
@@ -197,6 +199,7 @@ const handleUpdateProfile = async () => {
                   value={formData.dob}
                   onChange={(e) => handleInputChange('dob', e.target.value)}
                   disabled={!isEditing}
+                  style={isEditing ? { color: '#000', background: '#fff', opacity: 1 } : {}}
                 />
               </div>
 
@@ -208,6 +211,7 @@ const handleUpdateProfile = async () => {
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
                   disabled={!isEditing}
+                  style={isEditing ? { color: '#000', background: '#fff', opacity: 1 } : {}}
                 />
               </div>
 
@@ -219,6 +223,7 @@ const handleUpdateProfile = async () => {
                   value={formData.city}
                   onChange={(e) => handleInputChange('city', e.target.value)}
                   disabled={!isEditing}
+                  style={isEditing ? { color: '#000', background: '#fff', opacity: 1 } : {}}
                 />
               </div>
 
@@ -230,6 +235,7 @@ const handleUpdateProfile = async () => {
                   value={formData.province}
                   onChange={(e) => handleInputChange('province', e.target.value)}
                   disabled={!isEditing}
+                  style={isEditing ? { color: '#000', background: '#fff', opacity: 1 } : {}}
                 />
               </div>
               <div className="form-group">
@@ -240,6 +246,7 @@ const handleUpdateProfile = async () => {
                   value={formData.sex}
                   onChange={(e) => handleInputChange('sex', e.target.value)}
                   disabled={!isEditing}
+                  style={isEditing ? { color: '#000', background: '#fff', opacity: 1 } : {}}
                 />
               </div>
 
