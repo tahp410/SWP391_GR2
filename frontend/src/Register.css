@@ -78,10 +78,42 @@ body {
 /* ====== FIELDS ====== */
 label{ color:#ffe7c0; font-size:13px; margin-bottom:6px; }
 
+/* Custom date input format */
+.date-input::-webkit-calendar-picker-indicator {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 5px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.date-input::-webkit-datetime-edit-fields-wrapper {
+  color: var(--text);
+}
+
+.date-input::-webkit-datetime-edit-text {
+  color: var(--text);
+  padding: 0 0.3em;
+}
+
+.date-input::-webkit-datetime-edit-day-field,
+.date-input::-webkit-datetime-edit-month-field,
+.date-input::-webkit-datetime-edit-year-field {
+  color: var(--text);
+}
+
+.date-input::-webkit-inner-spin-button {
+  display: none;
+}
+
+.date-input::-webkit-clear-button {
+  display: none;
+}
+
 input[type="text"],
 input[type="email"],
 input[type="password"],
 input[type="date"],
+input[type="tel"],
 select{
   width:100%;
   padding:12px 12px;
