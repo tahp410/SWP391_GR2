@@ -2,9 +2,11 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
-import User from "./models/userModel.js";
+
+import User from "./models/userModel.js"; 
 import userRoutes from './routes/userRoutes.js';
 import branchRoutes from './routes/branchRoutes.js';
+import voucherRoutes from './routes/voucherRoutes.js';
 
 dotenv.config(); // đọc biến môi trường từ file .env
 connectDB();
@@ -19,6 +21,7 @@ app.use(express.json()); // parse body JSON
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
+app.use('/api/vouchers', voucherRoutes); // ✅ Thêm dòng này
 
 // Route test
 app.get("/", (req, res) => {
