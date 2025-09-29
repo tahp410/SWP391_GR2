@@ -2,9 +2,11 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
+
 import User from "./models/userModel.js";
 import userRoutes from './routes/userRoutes.js';
 import branchRoutes from './routes/branchRoutes.js';
+import movieRoutes from './routes/movieRoutes.js';
 
 dotenv.config(); // đọc biến môi trường từ file .env
 connectDB();
@@ -17,8 +19,11 @@ app.use(cors()); // cho phép gọi API từ domain khác (React)
 app.use(express.json()); // parse body JSON
 
 // Routes
+
 app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
+app.use('/api/movies', movieRoutes);
+
 
 // Route test
 app.get("/", (req, res) => {

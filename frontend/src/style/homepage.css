@@ -464,6 +464,7 @@ body {
 
 .cgv-logo-large img {
   height: 60px;
+  max-width: max-content;
 }
 
 /* Footer */

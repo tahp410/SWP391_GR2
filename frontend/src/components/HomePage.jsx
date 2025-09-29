@@ -16,7 +16,7 @@ const HomePage = () => {
   const MovieCard = ({ movie, showTime }) => (
     <div className="movie-card">
       <div className="movie-poster">
-        <img src="/api/placeholder/200/280" alt={movie.title} />
+        <img src="https://kenh14cdn.com/203336854389633024/2023/10/28/nvccspecial4x5-16984613995241980487333-16984631876291891509482.jpg" alt={movie.title} />
       </div>
       <div className="movie-info">
         <h3>{movie.title}</h3>
@@ -159,7 +159,7 @@ const HomePage = () => {
         <section className="final-cta">
           <h2>Movie viewing color to your life</h2>
           <div className="cgv-logo-large">
-            <img src="/api/placeholder/120/60" alt="CGV" />
+            <img src="/" alt="CGV" />
           </div>
         </section>
       </main>
@@ -173,12 +173,6 @@ const HomePage = () => {
             <a href="#contact">Contact Us</a>
             <a href="#privacy">Privacy Policy</a>
             <a href="#terms">Terms & Conditions</a>
-          </div>
-          <div className="social-links">
-            <a href="#facebook">📘</a>
-            <a href="#instagram">📷</a>
-            <a href="#youtube">📺</a>
-            <a href="#twitter">🐦</a>
           </div>
         </div>
         <div className="footer-bottom">
