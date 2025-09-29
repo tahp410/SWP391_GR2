@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, Film, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -84,15 +86,13 @@ const Login = () => {
       }
 
       // Lưu thông tin user và token
-      localStorage.setItem('token', data.token);
-      if (rememberMe) {
-        localStorage.setItem('user', JSON.stringify({
-          id: data._id,
-          name: data.name,
-          email: data.email,
-          role: data.role
-        }));
-      }
+      const userData = {
+        id: data._id,
+        name: data.name,
+        email: data.email,
+        role: data.role
+      };
+      login(data.token, userData);
 
       // Reset form
       setFormData({
