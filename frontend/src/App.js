@@ -5,6 +5,7 @@ import ChangePassword from './changePassword';
 import HomePage from "./components/HomePage";
 import Profile from "./components/Profile";
 import BranchManagement from "./components/Admin/BranchManagement";
+import UserManagement from "./components/Admin/UserManagement";
 import AdminDashboard from "./components/Admin/AdminDashboard";
 import './style/homepage.css';
 import './style/profile.css';
@@ -65,7 +66,7 @@ const AppInner = () => {
         />
         <Route 
           path="/admin/users" 
-          element={isAdmin ? <div>User Management - Coming Soon</div> : <Navigate to="/home" />} 
+          element={isAdmin ? <UserManagement /> : <Navigate to="/home" />} 
         />
         <Route 
           path="/admin/movies" 
