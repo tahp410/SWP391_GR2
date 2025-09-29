@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Header from './components/Header';
+import './style/changePassword.css';
 const ChangePasswordScreen = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -140,15 +142,19 @@ const ChangePasswordScreen = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-black flex items-center justify-center p-4">
+    <div className="change-password-container">
+      {/* Header */}
+      <Header />
+      
+      <div className="flex items-center justify-center p-4 pt-20">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 to-red-700 rounded-full mb-4 shadow-xl border-2 border-yellow-400/30">
+          <div className="change-password-icon inline-flex items-center justify-center w-16 h-16 rounded-full mb-4">
             <Lock className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-red-500 bg-clip-text text-transparent mb-2">Đổi mật khẩu</h1>
-          <p className="text-gray-400">Cập nhật mật khẩu để bảo mật tài khoản</p>
+          <h1 className="change-password-title text-3xl font-bold mb-2">Đổi mật khẩu</h1>
+          <p className="text-gray-300">Cập nhật mật khẩu để bảo mật tài khoản</p>
         </div>
 
         {/* Success Message */}
@@ -162,7 +168,7 @@ const ChangePasswordScreen = () => {
         )}
 
         {/* Form */}
-        <div className="bg-black/60 backdrop-blur-xl rounded-2xl shadow-2xl border border-yellow-400/20 p-8">
+        <div className="change-password-form rounded-2xl p-8">
           <div className="space-y-6">
             {/* General Error */}
             {errors.general && (
@@ -185,7 +191,7 @@ const ChangePasswordScreen = () => {
                   name="currentPassword"
                   value={formData.currentPassword}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 pr-12 bg-gray-800/80 border border-yellow-400/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300"
+                  className="change-password-input w-full px-4 py-3 pr-12 rounded-xl text-white placeholder-gray-300 focus:outline-none transition-all duration-300"
                   placeholder="Nhập mật khẩu hiện tại"
                 />
                 <button
@@ -212,7 +218,7 @@ const ChangePasswordScreen = () => {
                   name="newPassword"
                   value={formData.newPassword}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 pr-12 bg-gray-800/80 border border-yellow-400/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300"
+                  className="change-password-input w-full px-4 py-3 pr-12 rounded-xl text-white placeholder-gray-300 focus:outline-none transition-all duration-300"
                   placeholder="Nhập mật khẩu mới"
                 />
                 <button
@@ -278,7 +284,7 @@ const ChangePasswordScreen = () => {
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 pr-12 bg-gray-800/80 border border-yellow-400/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300"
+                  className="change-password-input w-full px-4 py-3 pr-12 rounded-xl text-white placeholder-gray-300 focus:outline-none transition-all duration-300"
                   placeholder="Nhập lại mật khẩu mới"
                 />
                 <button
@@ -298,7 +304,7 @@ const ChangePasswordScreen = () => {
             <button
               onClick={handleSubmit}
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-red-800/50 disabled:to-red-800/50 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 disabled:cursor-not-allowed shadow-xl border border-yellow-400/20"
+              className="change-password-button w-full text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center">
@@ -313,11 +319,12 @@ const ChangePasswordScreen = () => {
 
           {/* Footer */}
           <div className="mt-6 text-center">
-            <button type="button" className="text-gray-400 hover:text-yellow-400 transition-colors text-sm" onClick={() => navigate('/profile')}>
+            <button type="button" className="text-gray-300 hover:text-yellow-400 transition-colors text-sm font-medium" onClick={() => navigate('/profile')}>
               ← Quay lại trang cá nhân
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
