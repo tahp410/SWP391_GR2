@@ -289,8 +289,8 @@ const UserManagementContent = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6 text-center">
-        <h1 className="text-4xl font-extrabold text-black mb-2">Quản lý người dùng</h1>
+      <div className="mb-6">
+        <h1 className="text-4xl font-extrabold text-black mb-2">User Management</h1>
         <p className="text-lg text-black">Quản lý tài khoản người dùng trong hệ thống</p>
       </div>
 
