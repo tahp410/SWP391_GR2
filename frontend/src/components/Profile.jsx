@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom';
+import Header from './Header';
 const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api/users';
 
 
@@ -128,24 +129,7 @@ const Profile = () => {
   return (
     <div className="cgv-profile-container">
       {/* Header */}
-      <header className="profile-header">
-        <div className="header-content">
-          <div className="logo">
-            <span className="cgv-logo">CGV</span>
-            <span className="logo-star">*</span>
-          </div>
-          <nav className="header-nav">
-            <a href="/" className="nav-link">Home</a>
-            <a href="#movies" className="nav-link">Movies</a>
-            <a href="#showtime" className="nav-link">Showtime</a>
-          </nav>
-          <div className="header-actions">
-            <button className="action-btn profile-btn" title="Tài khoản">
-              <div className="avatar"><span>👤</span></div>
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Breadcrumb */}
       <div className="breadcrumb">
