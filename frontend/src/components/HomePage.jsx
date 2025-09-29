@@ -1,7 +1,9 @@
 import React from 'react';
+import Header from './Header';
 
 
-const homepage = () => {
+const HomePage = () => {
+
   const movieData = {
     title: "Adventure Time",
     duration: "1h 30min",
@@ -40,23 +42,7 @@ const homepage = () => {
   return (
     <div className="cgv-container">
       {/* Header */}
-      <header className="header">
-        <div className="header-content">
-          <div className="logo">
-            <img src="/api/placeholder/80/40" alt="CGV" />
-          </div>
-          <nav className="navigation">
-            <a href="/profile">Movies</a>
-            <a href="#cinemas">Cinemas</a>
-            <a href="#showtimes">Showtimes</a>
-          </nav>
-          <div className="header-actions">
-            <button className="search-btn">🔍</button>
-            <button className="profile-btn">👤</button>
-            <button className="theme-btn">🌙</button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Hero Section */}
       <section className="hero">
@@ -203,4 +189,4 @@ const homepage = () => {
   );
 };
 
-export default homepage;
+export default HomePage;
