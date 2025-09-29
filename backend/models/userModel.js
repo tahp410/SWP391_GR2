@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
-const userSchema = mongoose.Schema(
+const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
@@ -52,27 +52,35 @@ const userSchema = mongoose.Schema(
         },
       ],
     },
-    resetPasswordToken: String,
-    resetPasswordExpire: Date,
+    resetPasswordToken: {
+      type: String,
+    },
+    resetPasswordExpire: {
+      type: Date,
+    },
   },
   {
-    timestamps: true,
+    timestamps: true, // Tự động thêm createdAt và updatedAt
   }
 );
 
-// Match user entered password to hashed password in database
+// Phương thức để so sánh mật khẩu nhập vào với mật khẩu hash trong DB
 userSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  // 'this.password' là mật khẩu đã được hash lưu trong DB
+  return bcrypt.compare(enteredPassword, this.password);
 };
 
-// Encrypt password before saving
+// Middleware 'pre' chạy trước sự kiện 'save' (lưu vào DB)
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) {
+  // Nếu mật khẩu không bị thay đổi, bỏ qua việc hash
+  if (!this.isModified("password") || this.password === undefined) {
     return next();
   }
 
   try {
+    // Tạo salt (chuỗi ngẫu nhiên)
     const salt = await bcrypt.genSalt(10);
+    // Hash mật khẩu và gán lại vào trường password
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
