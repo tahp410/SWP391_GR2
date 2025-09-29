@@ -174,7 +174,7 @@ export const deleteUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, phone, role, gender, province, city } = req.body;
+    const { name, email, phone, role, gender, province, city, password } = req.body;
 
     const payload = {};
     if (name) payload.name = name;
@@ -184,6 +184,12 @@ export const updateUser = async (req, res) => {
     if (gender) payload.gender = gender.toLowerCase();
     if (province) payload.province = province;
     if (city) payload.city = city;
+    
+    // Nếu có password mới, hash và cập nhật
+    if (password && password.trim()) {
+      const salt = await bcrypt.genSalt(10);
+      payload.password = await bcrypt.hash(password.trim(), salt);
+    }
 
     const user = await User.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
     if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
@@ -196,7 +202,8 @@ export const updateUser = async (req, res) => {
       phone: user.phone,
       gender: user.gender,
       province: user.province,
-      city: user.city
+      city: user.city,
+      message: password ? 'Cập nhật thông tin và mật khẩu thành công' : 'Cập nhật thông tin thành công'
     });
   } catch (error) {
     return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });

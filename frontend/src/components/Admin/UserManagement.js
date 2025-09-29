@@ -120,8 +120,9 @@ const UserManagementContent = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/';
-      } else {
-        alert('Không thể tải danh sách người dùng. Vui lòng thử lại.');
+      } 
+      else {
+        alert('Không thể tải danh sách người dùng. Vui lòng thử lại sau.');
       }
       setUsers([]);
     } finally {
@@ -166,9 +167,12 @@ const UserManagementContent = () => {
       setCreateErrors({ form: 'Vui lòng nhập tên và email' });
       return;
     }
-    // Kiểm tra email phải có định dạng @gmail.com
-    if (!creating.email.toLowerCase().endsWith('@gmail.com')) {
-      setCreateErrors({ email: 'Email phải có định dạng ...@gmail.com' });
+    // Kiểm tra email có đuôi được phép
+    const allowedDomains = ['@gmail.com', '@example.com', '@cineticket.com'];
+    const emailLower = creating.email.toLowerCase();
+    const hasValidDomain = allowedDomains.some(domain => emailLower.endsWith(domain));
+    if (!hasValidDomain) {
+      setCreateErrors({ email: 'Email phải có đuôi @gmail.com, @example.com hoặc @cineticket.com' });
       return;
     }
     // Kiểm tra mật khẩu phải có ít nhất 6 ký tự
@@ -204,6 +208,9 @@ const UserManagementContent = () => {
       // Refresh danh sách users từ database
       await fetchUsers();
       
+      // Hiển thị thông báo thành công
+      alert('✅ Tạo người dùng thành công!');
+      
       // optional: lưu token để có thể đăng nhập ngay (tùy flow hiện tại)
       const apiUser = res.data;
       if (apiUser.token) {
@@ -226,16 +233,48 @@ const UserManagementContent = () => {
   const commitEdit = async () => {
     if (!editing) return;
     
-    // Kiểm tra email phải có định dạng @gmail.com
-    if (!editing.email.toLowerCase().endsWith('@gmail.com')) {
-      alert('Email phải có định dạng ...@gmail.com');
+    // Kiểm tra tên và email bắt buộc
+    if (!editing.name || !editing.email) {
+      alert('Vui lòng nhập tên và email');
+      return;
+    }
+    
+    // Kiểm tra email có đuôi được phép
+    const allowedDomains = ['@gmail.com', '@example.com', '@cineticket.com'];
+    const emailLower = editing.email.toLowerCase();
+    const hasValidDomain = allowedDomains.some(domain => emailLower.endsWith(domain));
+    if (!hasValidDomain) {
+      alert('Email phải có đuôi @gmail.com, @example.com hoặc @cineticket.com');
+      return;
+    }
+    
+    // Kiểm tra mật khẩu nếu có thay đổi (phải có ít nhất 6 ký tự)
+    if (editing.password && editing.password.length < 6) {
+      alert('Mật khẩu phải có ít nhất 6 ký tự');
+      return;
+    }
+    
+    // Kiểm tra email trùng lặp (trừ user hiện tại)
+    const emailExists = users.some(u => 
+      u.id !== editing.id && 
+      (u.email || '').toLowerCase() === editing.email.toLowerCase()
+    );
+    if (emailExists) {
+      alert('Email đã tồn tại');
+      return;
+    }
+    
+    // Kiểm tra số điện thoại phải đúng 10 chữ số
+    if (editing.phone && !/^\d{10}$/.test(editing.phone.trim())) {
+      alert('Số điện thoại phải gồm đúng 10 chữ số');
       return;
     }
     
     try {
       // Gọi API cập nhật DB
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/users/${editing.id}`, {
+      // Tạo object dữ liệu cập nhật
+      const updateData = {
         name: editing.name,
         email: editing.email,
         phone: editing.phone,
@@ -243,13 +282,29 @@ const UserManagementContent = () => {
         gender: (editing.gender === 'Nữ' ? 'female' : editing.gender === 'Nam' ? 'male' : 'other'),
         province: editing.province || 'N/A',
         city: editing.city || 'N/A'
-      }, {
+      };
+      
+      // Chỉ thêm password nếu có thay đổi
+      if (editing.password && editing.password.trim()) {
+        updateData.password = editing.password;
+      }
+      
+      const response = await axios.put(`http://localhost:5000/api/users/${editing.id}`, updateData, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       
       setEditing(null);
       // Refresh danh sách users từ database
       await fetchUsers();
+      
+      // Hiển thị thông báo thành công với thông tin cụ thể
+      const message = response.data?.message || '✅ Cập nhật người dùng thành công!';
+      const hasPasswordUpdate = editing.password && editing.password.trim();
+      if (hasPasswordUpdate) {
+        alert(message + '\n\n💡 Mật khẩu đã được thay đổi. Người dùng có thể đăng nhập với mật khẩu mới.');
+      } else {
+        alert(message);
+      }
     } catch (e) {
       console.error(e);
       alert('Cập nhật thất bại: ' + (e.response?.data?.message || e.message));
@@ -277,7 +332,8 @@ const UserManagementContent = () => {
       // Refresh danh sách users từ database
       await fetchUsers();
       
-      alert('Xóa người dùng thành công!');
+      // Hiển thị thông báo thành công
+      alert('✅ Xóa người dùng thành công!');
     } catch (e) {
       console.error('Delete failed:', e);
       console.error('Error response:', e.response?.data);
@@ -292,6 +348,13 @@ const UserManagementContent = () => {
       <div className="mb-6">
         <h1 className="text-4xl font-extrabold text-black mb-2">User Management</h1>
         <p className="text-lg text-black">Quản lý tài khoản người dùng trong hệ thống</p>
+        {users.length === 0 && !loading && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800">
+              💡 <strong>Lưu ý:</strong> Nếu không thể tải danh sách, vui lòng đăng nhập với tài khoản <strong>admin@cineticket.com</strong> để có quyền truy cập.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="mb-6 flex flex-col md:flex-row gap-4 md:items-center">
@@ -345,7 +408,12 @@ const UserManagementContent = () => {
               </tr>
             ) : filteredUsers.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-black" colSpan={7}>Không có người dùng phù hợp</td>
+                <td className="px-4 py-8 text-center text-black" colSpan={7}>
+                  {users.length === 0 
+                    ? "Không thể tải danh sách người dùng."
+                    : "Không có người dùng phù hợp với bộ lọc hiện tại."
+                  }
+                </td>
               </tr>
             ) : (
               filteredUsers.map(u => (
@@ -405,7 +473,16 @@ const UserManagementContent = () => {
         {editing && (
           <div className="space-y-3">
             <input value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Tên" />
-            <input value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email (phải có @gmail.com)" />
+            <input value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email (@gmail.com, @example.com, @cineticket.com)" />
+            <input 
+              type="password"
+              value={editing.password || ''} 
+              onChange={e => setEditing({ ...editing, password: e.target.value })} 
+              className="w-full border border-gray-300 rounded px-3 py-2 text-black bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Mật khẩu mới (để trống nếu không đổi, tối thiểu 6 ký tự)"
+              autoComplete="new-password"
+              style={{ backgroundColor: '#ffffff', color: '#000000', WebkitBoxShadow: '0 0 0px 1000px #ffffff inset', borderColor: '#d1d5db' }}
+            />
             <input value={editing.phone} onChange={e => setEditing({ ...editing, phone: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Số điện thoại" />
             <select 
               value={editing.province || ''} 
@@ -454,7 +531,7 @@ const UserManagementContent = () => {
         {creating && (
           <div className="space-y-3">
             <input value={creating.name} onChange={e => setCreating({ ...creating, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Tên" />
-            <input value={creating.email} onChange={e => { setCreating({ ...creating, email: e.target.value }); setCreateErrors({ ...createErrors, email: undefined }); }} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email (phải có @gmail.com)" />
+            <input value={creating.email} onChange={e => { setCreating({ ...creating, email: e.target.value }); setCreateErrors({ ...createErrors, email: undefined }); }} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email (@gmail.com, @example.com, @cineticket.com)" />
             {createErrors.email && <p className="text-red-600 text-sm">{createErrors.email}</p>}
             <input
               value={creating.password || ''}
