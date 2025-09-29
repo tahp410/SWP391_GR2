@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const initialForm = {
@@ -14,6 +15,29 @@ const initialForm = {
   agreeTerms: false,
 };
 
+// Hàm kiểm tra độ mạnh mật khẩu giống changePassword.js
+const checkPasswordStrength = (password) => {
+  const checks = {
+    length: password.length >= 6,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /\d/.test(password),
+    special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+  };
+  const score = Object.values(checks).filter(Boolean).length;
+  return { checks, score };
+};
+
+const getStrengthColor = (score) => {
+  if (score < 2) return 'bg-red-500';
+  if (score < 4) return 'bg-yellow-500';
+  return 'bg-green-500';
+};
+
+const getStrengthText = (score) => {
+  if (score < 2) return 'Yếu';
+  if (score < 4) return 'Trung bình';
+  return 'Mạnh';
 // Hàm kiểm tra độ mạnh mật khẩu giống changePassword.js
 const checkPasswordStrength = (password) => {
   const checks = {
@@ -59,6 +83,26 @@ const districtOptions = {
     "Ninh Kiều", "Bình Thủy", "Cái Răng", "Ô Môn", "Thốt Nốt", "Phong Điền", "Cờ Đỏ"
   ]
 };
+const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api/auth/register';
+
+// Data quận/huyện theo thành phố
+const districtOptions = {
+  "hanoi": [
+    "Ba Đình", "Hoàn Kiếm", "Hai Bà Trưng", "Đống Đa", "Tây Hồ", "Cầu Giấy", "Thanh Xuân", "Hoàng Mai", "Long Biên"
+  ],
+  "ho-chi-minh": [
+    "Quận 1", "Quận 3", "Quận 5", "Quận 7", "Quận 10", "Quận 11", "Quận Bình Thạnh", "Quận Gò Vấp", "Quận Phú Nhuận", "Quận Tân Bình", "Quận Thủ Đức", "Huyện Bình Chánh"
+  ],
+  "da-nang": [
+    "Hải Châu", "Thanh Khê", "Sơn Trà", "Ngũ Hành Sơn", "Liên Chiểu", "Cẩm Lệ", "Hòa Vang"
+  ],
+  "hai-phong": [
+    "Hồng Bàng", "Lê Chân", "Ngô Quyền", "Kiến An", "Hải An", "Dương Kinh", "Đồ Sơn"
+  ],
+  "can-tho": [
+    "Ninh Kiều", "Bình Thủy", "Cái Răng", "Ô Môn", "Thốt Nốt", "Phong Điền", "Cờ Đỏ"
+  ]
+};
 
 export default function Register() {
   const [form, setForm] = useState(initialForm);
@@ -66,6 +110,12 @@ export default function Register() {
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
 
+  const strengthObj = checkPasswordStrength(form.password);
+  const strength = {
+    score: strengthObj.score,
+    label: getStrengthText(strengthObj.score),
+    percent: (strengthObj.score / 5) * 100
+  };
   const strengthObj = checkPasswordStrength(form.password);
   const strength = {
     score: strengthObj.score,
@@ -98,6 +148,16 @@ export default function Register() {
         [name]: type === "checkbox" ? checked : name === "dateOfBirth" ? (value ? formatDateToDMY(value) : "") : value,
       };
     });
+    setForm((prev) => {
+      // Nếu chọn lại thành phố thì reset quận/huyện
+      if (name === "city") {
+        return { ...prev, city: value, district: "" };
+      }
+      return {
+        ...prev,
+        [name]: type === "checkbox" ? checked : name === "dateOfBirth" ? (value ? formatDateToDMY(value) : "") : value,
+      };
+    });
   };
 
   // Gọn validate
@@ -109,6 +169,7 @@ export default function Register() {
     if (!form.phone.trim()) e.phone = "Vui lòng nhập số điện thoại";
     else if (!/^[0-9]{10}$/.test(form.phone)) e.phone = "Số điện thoại không hợp lệ";
     if (!form.password) e.password = "Vui lòng nhập mật khẩu";
+    else if (form.password.length < 6) e.password = "Mật khẩu phải từ 6 ký tự trở lên";
     else if (form.password.length < 6) e.password = "Mật khẩu phải từ 6 ký tự trở lên";
     if (!form.confirmPassword) e.confirmPassword = "Vui lòng xác nhận mật khẩu";
     else if (form.password !== form.confirmPassword) e.confirmPassword = "Mật khẩu xác nhận không khớp";
@@ -136,8 +197,8 @@ export default function Register() {
         city: form.district,
         gender: form.gender,
         dob: dateForApi
+        dob: dateForApi
       };
-
       const response = await fetch(`${API_BASE}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -146,11 +207,13 @@ export default function Register() {
       const responseText = await response.text();
       let data;
       console.log("Response Text:", responseText); // Debug line
+      console.log("Response Text:", responseText); // Debug line
       if (responseText) {
         try { data = JSON.parse(responseText); } catch { throw new Error("Server trả về dữ liệu không hợp lệ"); }
       }
       if (response.ok) {
         alert("Đăng ký thành công!");
+        // navigate("/login");
         // navigate("/login");
       } else {
         throw new Error(data?.message || "Đăng ký thất bại. Vui lòng thử lại.");
@@ -227,18 +290,34 @@ export default function Register() {
                   👁
                 </button>
               </div>
-              <div className="mt-2">
-                <div className="h-1 bg-white/10 rounded-sm overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-300 ${getStrengthColor(strength.score)}`}
-                    style={{ width: `${strength.percent}%` }}
-                  />
+              {/* Độ mạnh mật khẩu */}
+              {form.password && (
+                <div className="space-y-2" style={{marginTop: 8}}>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">Độ mạnh mật khẩu</span>
+                    <span className={`font-medium ${
+                      strength.score < 2 ? 'text-red-400' :
+                      strength.score < 4 ? 'text-yellow-400' : 'text-green-400'
+                    }`}>
+                      {getStrengthText(strength.score)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${getStrengthColor(strength.score)}`}
+                      style={{ width: `${(strength.score / 5) * 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className={`text-xs ${strength.checks.length ? 'text-green-400' : 'text-gray-500'}`}>✓ Ít nhất 6 ký tự</div>
+                    <div className={`text-xs ${strength.checks.uppercase ? 'text-green-400' : 'text-gray-500'}`}>✓ Chữ hoa</div>
+                    <div className={`text-xs ${strength.checks.lowercase ? 'text-green-400' : 'text-gray-500'}`}>✓ Chữ thường</div>
+                    <div className={`text-xs ${strength.checks.number ? 'text-green-400' : 'text-gray-500'}`}>✓ Số</div>
+                    <div className={`text-xs ${strength.checks.special ? 'text-green-400' : 'text-gray-500'}`}>✓ Ký tự đặc biệt</div>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-400 mt-1 block">
-                  Độ mạnh mật khẩu: {strength.label}
-                </span>
-              </div>
-              {errors.password && <div className="text-red-400 text-xs mt-1">{errors.password}</div>}
+              )}
+              {errors.password && <div className="error">{errors.password}</div>}
             </div>
                 <button type="button" className="toggle-password" onClick={() => setShowPw((s) => ({ ...s, password: !s.password }))} aria-label={showPw.password ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>👁</button>
             <div className="mb-4">
@@ -260,12 +339,10 @@ export default function Register() {
               </div>
               {errors.confirmPassword && <div className="text-red-400 text-xs mt-1">{errors.confirmPassword}</div>}
             </div>
-            <div className="mb-4">
-              <label htmlFor="city" className="block text-yellow-200 text-sm mb-2">Thành phố *</label>
-              <select 
-                id="city" name="city" value={form.city} onChange={onChange} required
-                className="w-full px-3 py-2.5 rounded-lg bg-gray-800 border border-white/10 text-gray-100 focus:outline-none focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20 transition-all"
-              >
+            {/* Thành phố lên trước */}
+            <div className="form-group">
+              <label htmlFor="city">Thành phố *</label>
+              <select id="city" name="city" value={form.city} onChange={onChange} required>
                 <option value="">Chọn thành phố</option>
                 <option value="hanoi">Hà Nội</option>
                 <option value="ho-chi-minh">TP. Hồ Chí Minh</option>
@@ -288,9 +365,19 @@ export default function Register() {
               </select>
               {errors.district && <div className="text-red-400 text-xs mt-1">{errors.district}</div>}
             </div>
-            <div className="mb-4">
-              <label className="block text-yellow-200 text-sm mb-2">Giới tính *</label>
-              <div className="flex gap-8">
+            <div className="form-group">
+              <label htmlFor="district">Quận/Huyện *</label>
+              <select id="district" name="district" value={form.district} onChange={onChange} required disabled={!form.city}>
+                <option value="">Chọn quận/huyện</option>
+                {form.city && districtOptions[form.city]?.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+              {errors.district && <div className="error">{errors.district}</div>}
+            </div>
+            <div className="form-group">
+              <label className="block text-sm font-medium text-yellow-400 mb-2">Giới tính *</label>
+              <div className="flex justify-start items-center gap-8">
                 {['male','female','other'].map((g) => (
                   <label key={g} className="flex items-center cursor-pointer">
                     <input 
@@ -306,16 +393,10 @@ export default function Register() {
               </div>
               {errors.gender && <div className="text-red-400 text-xs mt-1">{errors.gender}</div>}
             </div>
-            <div className="mb-4">
-              <label htmlFor="dateOfBirth" className="block text-yellow-200 text-sm mb-2">Ngày sinh *</label>
-              <input 
-                type="date" id="dateOfBirth" name="dateOfBirth" 
-                value={form.dateOfBirth ? parseDMYtoISO(form.dateOfBirth) : ''} 
-                onChange={onChange} required placeholder="mm/dd/yyyy" 
-                min="01-01-1900" max={new Date().toISOString().split('T')[0]} 
-                className="w-full px-3 py-2.5 rounded-lg bg-gray-800 border border-white/10 text-gray-100 focus:outline-none focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20 transition-all"
-              />
-              {errors.dateOfBirth && <div className="text-red-400 text-xs mt-1">{errors.dateOfBirth}</div>}
+            <div className="form-group">
+              <label htmlFor="dateOfBirth">Ngày sinh *</label>
+              <input type="date" id="dateOfBirth" name="dateOfBirth" value={form.dateOfBirth ? parseDMYtoISO(form.dateOfBirth) : ''} onChange={onChange} required placeholder="mm/dd/yyyy" min="01-01-1900" max={new Date().toISOString().split('T')[0]} className="date-input" />
+              {errors.dateOfBirth && <div className="error">{errors.dateOfBirth}</div>}
             </div>
             <div className="mb-6">
               <div className="flex items-center space-x-2">
