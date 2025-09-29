@@ -90,13 +90,14 @@ const UserManagementContent = () => {
       return;
     }
     try {
-      const res = await axios.post('/api/users/register', {
+      const genderApi = (creating.gender || 'Nam') === 'Nữ' ? 'female' : (creating.gender || 'Nam') === 'Nam' ? 'male' : 'other';
+      const res = await axios.post('http://localhost:5000/api/users/register', {
         name: creating.name,
         email: creating.email,
         password: creating.password || 'Password@123',
         phone: creating.phone,
         role: (creating.role || 'CUSTOMER').toLowerCase(),
-        gender: (creating.gender || 'Nam').toLowerCase(),
+        gender: genderApi,
         province: 'N/A',
         city: 'N/A',
         dob: '2000-01-01'
@@ -127,15 +128,30 @@ const UserManagementContent = () => {
       } else if (status === 400 && /điện thoại|phone/i.test(msg)) {
         setCreateErrors({ phone: 'sdt k hop le' });
       } else {
-        setCreateErrors({ form: 'Đã có lỗi, vui lòng thử lại' });
+        setCreateErrors({ form: msg || 'Đã có lỗi, vui lòng thử lại' });
       }
     }
   };
 
   const commitEdit = () => {
     if (!editing) return;
-    setUsers(prev => prev.map(u => u.id === editing.id ? editing : u));
-    setEditing(null);
+    // Gọi API cập nhật DB
+    const token = localStorage.getItem('token');
+    axios.put(`http://localhost:5000/api/users/${editing.id}`, {
+      name: editing.name,
+      email: editing.email,
+      phone: editing.phone,
+      role: (editing.role || 'CUSTOMER').toLowerCase(),
+      gender: (editing.gender === 'Nữ' ? 'female' : editing.gender === 'Nam' ? 'male' : 'other')
+    }, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    }).then(() => {
+      setUsers(prev => prev.map(u => u.id === editing.id ? editing : u));
+      setEditing(null);
+    }).catch((e) => {
+      console.error(e);
+      alert('Cập nhật thất bại');
+    });
   };
 
   const commitDelete = () => {
@@ -250,6 +266,11 @@ const UserManagementContent = () => {
             <input value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Tên" />
             <input value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email" />
             <input value={editing.phone} onChange={e => setEditing({ ...editing, phone: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Số điện thoại" />
+            <select value={editing.gender || 'Nam'} onChange={e => setEditing({ ...editing, gender: e.target.value })} className="w-full border rounded px-3 py-2 bg-white text-black">
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+              <option value="Khác">Khác</option>
+            </select>
             <select value={editing.role} onChange={e => setEditing({ ...editing, role: e.target.value })} className="w-full border rounded px-3 py-2 bg-white text-black">
               <option value="ADMIN">ADMIN</option>
               <option value="EMPLOYEE">EMPLOYEE</option>
@@ -270,9 +291,22 @@ const UserManagementContent = () => {
             <input value={creating.name} onChange={e => setCreating({ ...creating, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Tên" />
             <input value={creating.email} onChange={e => { setCreating({ ...creating, email: e.target.value }); setCreateErrors({ ...createErrors, email: undefined }); }} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email" />
             {createErrors.email && <p className="text-red-600 text-sm">{createErrors.email}</p>}
-            <input value={creating.password || ''} onChange={e => setCreating({ ...creating, password: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Mật khẩu" type="password" />
+            <input
+              value={creating.password || ''}
+              onChange={e => setCreating({ ...creating, password: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-black bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Mật khẩu"
+              type="password"
+              autoComplete="new-password"
+              style={{ backgroundColor: '#ffffff', color: '#000000', WebkitBoxShadow: '0 0 0px 1000px #ffffff inset', borderColor: '#d1d5db' }}
+            />
             <input value={creating.phone} onChange={e => { setCreating({ ...creating, phone: e.target.value }); setCreateErrors({ ...createErrors, phone: undefined }); }} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Số điện thoại" />
             {createErrors.phone && <p className="text-red-600 text-sm">{createErrors.phone}</p>}
+            <select value={creating.gender || 'Nam'} onChange={e => setCreating({ ...creating, gender: e.target.value })} className="w-full border rounded px-3 py-2 bg-white text-black">
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+              <option value="Khác">Khác</option>
+            </select>
             <select value={creating.role} onChange={e => setCreating({ ...creating, role: e.target.value })} className="w-full border rounded px-3 py-2 bg-white text-black">
               <option value="ADMIN">ADMIN</option>
               <option value="EMPLOYEE">EMPLOYEE</option>

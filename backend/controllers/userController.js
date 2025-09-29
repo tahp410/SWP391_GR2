@@ -35,14 +35,15 @@ export const registerUser = async (req, res) => {
       email: email.toLowerCase(),
       password,
       phone: normalizedPhone,
-      role: role.toLowerCase(),
-      gender: gender.toLowerCase(),
+      role: (role || 'customer').toLowerCase(),
+      gender: (gender || 'other').toLowerCase(),
       province,
       city,
       dob: new Date(dob)
     });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const secret = process.env.JWT_SECRET || 'devsecret';
+    const token = jwt.sign({ id: user._id }, secret, {
       expiresIn: '30d'
     });
 
@@ -80,7 +81,8 @@ export const loginUser = async (req, res) => {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const secret = process.env.JWT_SECRET || 'devsecret';
+    const token = jwt.sign({ id: user._id }, secret, {
       expiresIn: "30d",
     });
 
@@ -127,5 +129,34 @@ export const changePassword = async (req, res) => {
     return res.json({ message: "Đổi mật khẩu thành công" });
   } catch (error) {
     return res.status(500).json({ message: "Lỗi máy chủ", error: error.message });
+  }
+};
+
+// Cập nhật người dùng (admin/employee)
+export const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, role, gender } = req.body;
+
+    const payload = {};
+    if (name) payload.name = name;
+    if (email) payload.email = email.toLowerCase();
+    if (phone) payload.phone = phone;
+    if (role) payload.role = role.toLowerCase();
+    if (gender) payload.gender = gender.toLowerCase();
+
+    const user = await User.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+
+    return res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone,
+      gender: user.gender
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
 };
