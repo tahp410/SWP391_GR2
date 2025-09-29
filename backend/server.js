@@ -5,6 +5,7 @@ import connectDB from "./config/db.js";
 import User from "./models/userModel.js";
 import userRoutes from './routes/userRoutes.js';
 import branchRoutes from './routes/branchRoutes.js';
+import registerRoutes from './routes/register.js';
 
 dotenv.config(); // đọc biến môi trường từ file .env
 connectDB();
@@ -19,6 +20,7 @@ app.use(express.json()); // parse body JSON
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
+app.use('/api', registerRoutes);
 
 // Route test
 app.get("/", (req, res) => {
