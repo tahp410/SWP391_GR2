@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import AdminLayout from './AdminLayout';
+import axios from 'axios';
 
 const ROLES = [
   { label: 'Tất cả vai trò', value: 'all' },
@@ -52,6 +53,7 @@ const UserManagementContent = () => {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [creating, setCreating] = useState(null);
+  const [createErrors, setCreateErrors] = useState({});
 
   const handleSearch = () => {
     setQuery(searchText.trim());
@@ -61,28 +63,73 @@ const UserManagementContent = () => {
     const q = query.trim().toLowerCase();
     return users.filter(u => {
       const matchRole = role === 'all' || u.role.toLowerCase() === role;
-      const matchQuery = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+      // Tìm theo email
+      const matchQuery = !q || (u.email || '').toLowerCase().includes(q);
       return matchRole && matchQuery;
     });
   }, [query, role, users]);
 
   const startCreate = () => {
     setCreating({ name: '', email: '', phone: '', role: 'CUSTOMER', gender: 'Nam' });
+    setCreateErrors({});
   };
 
-  const commitCreate = () => {
-    if (!creating?.name || !creating?.email) return;
-    const newUser = {
-      id: `u${Date.now()}`,
-      name: creating.name,
-      email: creating.email,
-      phone: creating.phone || '',
-      role: creating.role,
-      gender: creating.gender || 'Nam',
-      createdAt: new Date().toLocaleDateString('vi-VN')
-    };
-    setUsers(prev => [newUser, ...prev]);
-    setCreating(null);
+  const commitCreate = async () => {
+    if (!creating?.name || !creating?.email) {
+      setCreateErrors({ form: 'Vui lòng nhập tên và email' });
+      return;
+    }
+    // Đối chiếu email đã có trong danh sách hiện tại để báo lỗi ngay
+    const emailExists = users.some(u => (u.email || '').toLowerCase() === creating.email.toLowerCase());
+    if (emailExists) {
+      setCreateErrors({ email: 'Email đã tồn tại' });
+      return;
+    }
+    if (!/^\d{10}$/.test((creating.phone || '').trim())) {
+      setCreateErrors({ phone: 'Số điện thoại phải gồm đúng 10 chữ số' });
+      return;
+    }
+    try {
+      const res = await axios.post('/api/users/register', {
+        name: creating.name,
+        email: creating.email,
+        password: creating.password || 'Password@123',
+        phone: creating.phone,
+        role: (creating.role || 'CUSTOMER').toLowerCase(),
+        gender: (creating.gender || 'Nam').toLowerCase(),
+        province: 'N/A',
+        city: 'N/A',
+        dob: '2000-01-01'
+      });
+
+      const apiUser = res.data;
+      const newUser = {
+        id: apiUser._id,
+        name: apiUser.name,
+        email: apiUser.email,
+        phone: creating.phone,
+        role: (creating.role || 'CUSTOMER').toUpperCase(),
+        gender: creating.gender || 'Nam',
+        createdAt: new Date().toLocaleDateString('vi-VN')
+      };
+      setUsers(prev => [newUser, ...prev]);
+      setCreating(null);
+      // optional: lưu token để có thể đăng nhập ngay (tùy flow hiện tại)
+      if (apiUser.token) {
+        localStorage.setItem('token', apiUser.token);
+      }
+    } catch (e) {
+      console.error(e);
+      const status = e.response?.status;
+      const msg = e.response?.data?.message || e.message;
+      if (status === 409 || /tồn tại|duplicate|exists/i.test(msg)) {
+        setCreateErrors({ email: 'email đã tồn tại' });
+      } else if (status === 400 && /điện thoại|phone/i.test(msg)) {
+        setCreateErrors({ phone: 'sdt k hop le' });
+      } else {
+        setCreateErrors({ form: 'Đã có lỗi, vui lòng thử lại' });
+      }
+    }
   };
 
   const commitEdit = () => {
@@ -109,8 +156,8 @@ const UserManagementContent = () => {
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-          placeholder="Tìm kiếm theo tên hoặc email..."
-          className="flex-1 border rounded-lg px-4 py-3 text-black placeholder-black focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Tìm theo email..."
+          className="flex-1 border rounded-lg px-4 py-3 text-black placeholder-black bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           onClick={handleSearch}
@@ -200,9 +247,9 @@ const UserManagementContent = () => {
       <Modal open={!!editing} title="Chỉnh sửa người dùng" onClose={() => setEditing(null)}>
         {editing && (
           <div className="space-y-3">
-            <input value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black" placeholder="Tên" />
-            <input value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} className="w-full border rounded px-3 py-2 text-black" placeholder="Email" />
-            <input value={editing.phone} onChange={e => setEditing({ ...editing, phone: e.target.value })} className="w-full border rounded px-3 py-2 text-black" placeholder="Số điện thoại" />
+            <input value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Tên" />
+            <input value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email" />
+            <input value={editing.phone} onChange={e => setEditing({ ...editing, phone: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Số điện thoại" />
             <select value={editing.role} onChange={e => setEditing({ ...editing, role: e.target.value })} className="w-full border rounded px-3 py-2 bg-white text-black">
               <option value="ADMIN">ADMIN</option>
               <option value="EMPLOYEE">EMPLOYEE</option>
@@ -220,9 +267,12 @@ const UserManagementContent = () => {
       <Modal open={!!creating} title="Thêm người dùng" onClose={() => setCreating(null)}>
         {creating && (
           <div className="space-y-3">
-            <input value={creating.name} onChange={e => setCreating({ ...creating, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black" placeholder="Tên" />
-            <input value={creating.email} onChange={e => setCreating({ ...creating, email: e.target.value })} className="w-full border rounded px-3 py-2 text-black" placeholder="Email" />
-            <input value={creating.phone} onChange={e => setCreating({ ...creating, phone: e.target.value })} className="w-full border rounded px-3 py-2 text-black" placeholder="Số điện thoại" />
+            <input value={creating.name} onChange={e => setCreating({ ...creating, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Tên" />
+            <input value={creating.email} onChange={e => { setCreating({ ...creating, email: e.target.value }); setCreateErrors({ ...createErrors, email: undefined }); }} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email" />
+            {createErrors.email && <p className="text-red-600 text-sm">{createErrors.email}</p>}
+            <input value={creating.password || ''} onChange={e => setCreating({ ...creating, password: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Mật khẩu" type="password" />
+            <input value={creating.phone} onChange={e => { setCreating({ ...creating, phone: e.target.value }); setCreateErrors({ ...createErrors, phone: undefined }); }} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Số điện thoại" />
+            {createErrors.phone && <p className="text-red-600 text-sm">{createErrors.phone}</p>}
             <select value={creating.role} onChange={e => setCreating({ ...creating, role: e.target.value })} className="w-full border rounded px-3 py-2 bg-white text-black">
               <option value="ADMIN">ADMIN</option>
               <option value="EMPLOYEE">EMPLOYEE</option>
@@ -232,6 +282,7 @@ const UserManagementContent = () => {
               <button onClick={() => setCreating(null)} className="px-4 py-2 bg-gray-100 text-black rounded">Hủy</button>
               <button onClick={commitCreate} className="px-4 py-2 bg-green-600 text-white rounded">Tạo</button>
             </div>
+            {createErrors.form && <p className="text-red-600 text-sm text-right">{createErrors.form}</p>}
           </div>
         )}
       </Modal>
