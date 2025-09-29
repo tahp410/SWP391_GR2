@@ -132,11 +132,49 @@ export const changePassword = async (req, res) => {
   }
 };
 
+// Lấy danh sách tất cả người dùng (admin only)
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({}).select('-password').sort({ createdAt: -1 });
+    
+    return res.json(users.map(user => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      gender: user.gender,
+      province: user.province,
+      city: user.city,
+      dob: user.dob,
+      createdAt: user.createdAt
+    })));
+  } catch (error) {
+    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+// Xóa người dùng (admin only)
+export const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const user = await User.findByIdAndDelete(id);
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+
+    return res.json({ message: 'Xóa người dùng thành công' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
 // Cập nhật người dùng (admin/employee)
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, phone, role, gender } = req.body;
+    const { name, email, phone, role, gender, province, city } = req.body;
 
     const payload = {};
     if (name) payload.name = name;
@@ -144,6 +182,8 @@ export const updateUser = async (req, res) => {
     if (phone) payload.phone = phone;
     if (role) payload.role = role.toLowerCase();
     if (gender) payload.gender = gender.toLowerCase();
+    if (province) payload.province = province;
+    if (city) payload.city = city;
 
     const user = await User.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
     if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
@@ -154,7 +194,9 @@ export const updateUser = async (req, res) => {
       email: user.email,
       role: user.role,
       phone: user.phone,
-      gender: user.gender
+      gender: user.gender,
+      province: user.province,
+      city: user.city
     });
   } catch (error) {
     return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });

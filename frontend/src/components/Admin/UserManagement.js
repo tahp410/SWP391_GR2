@@ -1,21 +1,25 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
 import axios from 'axios';
 
 const ROLES = [
-  { label: 'Tất cả vai trò', value: 'all' },
+  { label: 'Tất cả', value: 'all' },
   { label: 'ADMIN', value: 'admin' },
   { label: 'EMPLOYEE', value: 'employee' },
   { label: 'CUSTOMER', value: 'customer' }
 ];
 
-// Dữ liệu mẫu tạm thời – sẽ thay bằng API sau
-const SAMPLE_USERS = [
-  { id: 'u1', name: 'Đăng Phát', gender: 'Nam', email: 'dphat@example.com', phone: '0123456789', role: 'CUSTOMER', createdAt: '29/9/2025' },
-  { id: 'u2', name: 'Trần Minh Hoàng', gender: 'Nam', email: 'hoang.staff@cineticket.com', phone: '0778899001', role: 'EMPLOYEE', createdAt: '29/9/2025' },
-  { id: 'u3', name: 'Admin User', gender: 'Nam', email: 'admin@cineticket.com', phone: '0987654321', role: 'ADMIN', createdAt: '29/9/2025' },
-  { id: 'u4', name: 'Nguyễn Thu Hà', gender: 'Nữ', email: 'thuha@example.com', phone: '0334455667', role: 'CUSTOMER', createdAt: '29/9/2025' },
-  { id: 'u5', name: 'Lê Thị Ánh', gender: 'Nữ', email: 'anh.staff@cineticket.com', phone: '0445566778', role: 'EMPLOYEE', createdAt: '29/9/2025' }
+const PROVINCES = [
+  { name: 'Hà Nội', cities: ['Ba Đình', 'Hoàn Kiếm', 'Tây Hồ', 'Long Biên', 'Cầu Giấy', 'Đống Đa', 'Hai Bà Trưng', 'Hoàng Mai', 'Thanh Xuân', 'Sóc Sơn', 'Đông Anh', 'Gia Lâm', 'Nam Từ Liêm', 'Bắc Từ Liêm', 'Mê Linh', 'Hà Đông', 'Sơn Tây', 'Ba Vì', 'Phúc Thọ', 'Đan Phượng', 'Hoài Đức', 'Quốc Oai', 'Thạch Thất', 'Chương Mỹ', 'Thanh Oai', 'Thường Tín', 'Phú Xuyên', 'Ứng Hòa', 'Mỹ Đức'] },
+  { name: 'TP. Hồ Chí Minh', cities: ['Quận 1', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 6', 'Quận 7', 'Quận 8', 'Quận 10', 'Quận 11', 'Quận 12', 'Quận Bình Thạnh', 'Quận Gò Vấp', 'Quận Phú Nhuận', 'Quận Tân Bình', 'Quận Tân Phú', 'Quận Thủ Đức', 'Huyện Bình Chánh', 'Huyện Cần Giờ', 'Huyện Củ Chi', 'Huyện Hóc Môn', 'Huyện Nhà Bè'] },
+  { name: 'Đà Nẵng', cities: ['Hải Châu', 'Thanh Khê', 'Sơn Trà', 'Ngũ Hành Sơn', 'Liên Chiểu', 'Cẩm Lệ', 'Hòa Vang'] },
+  { name: 'Hải Phòng', cities: ['Hồng Bàng', 'Ngô Quyền', 'Lê Chân', 'Hải An', 'Kiến An', 'Đồ Sơn', 'Dương Kinh', 'Thuỷ Nguyên', 'An Dương', 'An Lão', 'Kiến Thuỵ', 'Tiên Lãng', 'Vĩnh Bảo', 'Cát Hải', 'Bạch Long Vĩ'] },
+  { name: 'Cần Thơ', cities: ['Ninh Kiều', 'Ô Môn', 'Bình Thuỷ', 'Cái Răng', 'Thốt Nốt', 'Vĩnh Thạnh', 'Cờ Đỏ', 'Phong Điền', 'Thới Lai'] },
+  { name: 'An Giang', cities: ['Long Xuyên', 'Châu Đốc', 'An Phú', 'Tân Châu', 'Phú Tân', 'Châu Phú', 'Tịnh Biên', 'Tri Tôn', 'Châu Thành', 'Chợ Mới', 'Thoại Sơn'] },
+  { name: 'Bà Rịa - Vũng Tàu', cities: ['Vũng Tàu', 'Bà Rịa', 'Châu Đức', 'Xuyên Mộc', 'Long Điền', 'Đất Đỏ', 'Tân Thành', 'Côn Đảo'] },
+  { name: 'Bắc Giang', cities: ['Bắc Giang', 'Yên Thế', 'Tân Yên', 'Lạng Giang', 'Lục Nam', 'Lục Ngạn', 'Sơn Động', 'Yên Dũng', 'Việt Yên', 'Hiệp Hòa'] },
+  { name: 'Bắc Kạn', cities: ['Bắc Kạn', 'Pác Nặm', 'Ba Bể', 'Ngân Sơn', 'Bạch Thông', 'Chợ Đồn', 'Chờ Rã', 'Na Rì'] },
+  { name: 'Bắc Ninh', cities: ['Bắc Ninh', 'Từ Sơn', 'Tiên Du', 'Quế Võ', 'Yên Phong', 'Gia Bình', 'Lương Tài', 'Thuận Thành'] }
 ];
 
 const TableHeaderCell = ({ children }) => (
@@ -27,6 +31,19 @@ const TableHeaderCell = ({ children }) => (
 const TableCell = ({ children }) => (
   <td className="px-4 py-4 text-sm text-black border-b">{children}</td>
 );
+
+const getRoleStyle = (role) => {
+  switch(role.toUpperCase()) {
+    case 'ADMIN':
+      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800';
+    case 'EMPLOYEE':
+      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800';
+    case 'CUSTOMER':
+      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800';
+    default:
+      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800';
+  }
+};
 
 const Modal = ({ open, title, children, onClose }) => {
   if (!open) return null;
@@ -47,13 +64,75 @@ const UserManagementContent = () => {
   const [searchText, setSearchText] = useState('');
   const [query, setQuery] = useState(''); // truy vấn áp dụng khi bấm tìm kiếm
   const [role, setRole] = useState('all');
-  const [users, setUsers] = useState(SAMPLE_USERS);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [viewing, setViewing] = useState(null);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [creating, setCreating] = useState(null);
   const [createErrors, setCreateErrors] = useState({});
+
+  // Fetch users từ database
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      console.log('Token from localStorage:', token ? 'Token exists' : 'No token'); // Debug log
+      
+      if (!token) {
+        console.error('No token found in localStorage');
+        setUsers([]);
+        alert('Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        return;
+      }
+      
+      console.log('Making API request to fetch users...');
+      const response = await axios.get('http://localhost:5000/api/users/', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      console.log('API Response successful, users count:', response.data.length); // Debug log
+      
+      // Transform dữ liệu từ API để phù hợp với format hiện tại
+      const transformedUsers = response.data.map(user => ({
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role.toUpperCase(),
+        gender: user.gender === 'male' ? 'Nam' : user.gender === 'female' ? 'Nữ' : 'Khác',
+        province: user.province || 'N/A',
+        city: user.city || 'N/A',
+        createdAt: new Date(user.createdAt).toLocaleDateString('vi-VN')
+      }));
+      
+      setUsers(transformedUsers);
+      console.log('Users set successfully:', transformedUsers.length);
+    } catch (error) {
+      console.error('Lỗi khi fetch users:', error);
+      console.error('Error response:', error.response?.data);
+      
+      // Nếu lỗi 401 (Unauthorized), có thể token đã hết hạn
+      if (error.response?.status === 401) {
+        console.error('Token might be expired or invalid');
+        alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+      } else {
+        alert('Không thể tải danh sách người dùng. Vui lòng thử lại.');
+      }
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // useEffect để fetch dữ liệu khi component mount
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleSearch = () => {
     setQuery(searchText.trim());
@@ -70,13 +149,31 @@ const UserManagementContent = () => {
   }, [query, role, users]);
 
   const startCreate = () => {
-    setCreating({ name: '', email: '', phone: '', role: 'CUSTOMER', gender: 'Nam' });
+    setCreating({ 
+      name: '', 
+      email: '', 
+      phone: '', 
+      role: 'CUSTOMER', 
+      gender: 'Nam',
+      province: '',
+      city: ''
+    });
     setCreateErrors({});
   };
 
   const commitCreate = async () => {
     if (!creating?.name || !creating?.email) {
       setCreateErrors({ form: 'Vui lòng nhập tên và email' });
+      return;
+    }
+    // Kiểm tra email phải có định dạng @gmail.com
+    if (!creating.email.toLowerCase().endsWith('@gmail.com')) {
+      setCreateErrors({ email: 'Email phải có định dạng ...@gmail.com' });
+      return;
+    }
+    // Kiểm tra mật khẩu phải có ít nhất 6 ký tự
+    if (!creating.password || creating.password.length < 6) {
+      setCreateErrors({ password: 'Mật khẩu phải có ít nhất 6 ký tự' });
       return;
     }
     // Đối chiếu email đã có trong danh sách hiện tại để báo lỗi ngay
@@ -98,24 +195,17 @@ const UserManagementContent = () => {
         phone: creating.phone,
         role: (creating.role || 'CUSTOMER').toLowerCase(),
         gender: genderApi,
-        province: 'N/A',
-        city: 'N/A',
+        province: creating.province || 'N/A',
+        city: creating.city || 'N/A',
         dob: '2000-01-01'
       });
 
-      const apiUser = res.data;
-      const newUser = {
-        id: apiUser._id,
-        name: apiUser.name,
-        email: apiUser.email,
-        phone: creating.phone,
-        role: (creating.role || 'CUSTOMER').toUpperCase(),
-        gender: creating.gender || 'Nam',
-        createdAt: new Date().toLocaleDateString('vi-VN')
-      };
-      setUsers(prev => [newUser, ...prev]);
       setCreating(null);
+      // Refresh danh sách users từ database
+      await fetchUsers();
+      
       // optional: lưu token để có thể đăng nhập ngay (tùy flow hiện tại)
+      const apiUser = res.data;
       if (apiUser.token) {
         localStorage.setItem('token', apiUser.token);
       }
@@ -133,31 +223,68 @@ const UserManagementContent = () => {
     }
   };
 
-  const commitEdit = () => {
+  const commitEdit = async () => {
     if (!editing) return;
-    // Gọi API cập nhật DB
-    const token = localStorage.getItem('token');
-    axios.put(`http://localhost:5000/api/users/${editing.id}`, {
-      name: editing.name,
-      email: editing.email,
-      phone: editing.phone,
-      role: (editing.role || 'CUSTOMER').toLowerCase(),
-      gender: (editing.gender === 'Nữ' ? 'female' : editing.gender === 'Nam' ? 'male' : 'other')
-    }, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    }).then(() => {
-      setUsers(prev => prev.map(u => u.id === editing.id ? editing : u));
+    
+    // Kiểm tra email phải có định dạng @gmail.com
+    if (!editing.email.toLowerCase().endsWith('@gmail.com')) {
+      alert('Email phải có định dạng ...@gmail.com');
+      return;
+    }
+    
+    try {
+      // Gọi API cập nhật DB
+      const token = localStorage.getItem('token');
+      await axios.put(`http://localhost:5000/api/users/${editing.id}`, {
+        name: editing.name,
+        email: editing.email,
+        phone: editing.phone,
+        role: (editing.role || 'CUSTOMER').toLowerCase(),
+        gender: (editing.gender === 'Nữ' ? 'female' : editing.gender === 'Nam' ? 'male' : 'other'),
+        province: editing.province || 'N/A',
+        city: editing.city || 'N/A'
+      }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      
       setEditing(null);
-    }).catch((e) => {
+      // Refresh danh sách users từ database
+      await fetchUsers();
+    } catch (e) {
       console.error(e);
-      alert('Cập nhật thất bại');
-    });
+      alert('Cập nhật thất bại: ' + (e.response?.data?.message || e.message));
+    }
   };
 
-  const commitDelete = () => {
+  const commitDelete = async () => {
     if (!deleting) return;
-    setUsers(prev => prev.filter(u => u.id !== deleting.id));
-    setDeleting(null);
+    
+    console.log('Starting delete for user:', deleting);
+    
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Token exists:', !!token);
+      
+      console.log('Making DELETE request to:', `http://localhost:5000/api/users/${deleting.id}`);
+      
+      const response = await axios.delete(`http://localhost:5000/api/users/${deleting.id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      
+      console.log('Delete successful:', response.data);
+      
+      setDeleting(null);
+      // Refresh danh sách users từ database
+      await fetchUsers();
+      
+      alert('Xóa người dùng thành công!');
+    } catch (e) {
+      console.error('Delete failed:', e);
+      console.error('Error response:', e.response?.data);
+      
+      const errorMsg = e.response?.data?.message || e.message;
+      alert('Xóa thất bại: ' + errorMsg);
+    }
   };
 
   return (
@@ -205,41 +332,53 @@ const UserManagementContent = () => {
               <TableHeaderCell>Người dùng</TableHeaderCell>
               <TableHeaderCell>Email</TableHeaderCell>
               <TableHeaderCell>Số điện thoại</TableHeaderCell>
+              <TableHeaderCell>Địa chỉ</TableHeaderCell>
               <TableHeaderCell>Vai trò</TableHeaderCell>
               <TableHeaderCell>Ngày tạo</TableHeaderCell>
               <TableHeaderCell>Thao tác</TableHeaderCell>
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map(u => (
-              <tr key={u.id} className="hover:bg-gray-50">
-                <TableCell>
-                  <div className="leading-tight">
-                    <div className="font-medium text-black">{u.name}</div>
-                    <div className="text-black text-xs mt-1">{u.gender}</div>
-                  </div>
-                </TableCell>
-                <TableCell>{u.email}</TableCell>
-                <TableCell>{u.phone}</TableCell>
-                <TableCell>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-black">
-                    {u.role}
-                  </span>
-                </TableCell>
-                <TableCell>{u.createdAt}</TableCell>
-                <TableCell>
-                  <div className="flex gap-4 text-sm">
-                    <button className="text-black hover:underline" onClick={() => setViewing(u)}>Xem</button>
-                    <button className="text-black hover:underline" onClick={() => setEditing({ ...u })}>Sửa</button>
-                    <button className="text-black hover:underline" onClick={() => setDeleting(u)}>Xóa</button>
-                  </div>
-                </TableCell>
-              </tr>
-            ))}
-            {filteredUsers.length === 0 && (
+            {loading ? (
               <tr>
-                <td className="px-4 py-8 text-center text-black" colSpan={6}>Không có người dùng phù hợp</td>
+                <td className="px-4 py-8 text-center text-black" colSpan={7}>Đang tải dữ liệu...</td>
               </tr>
+            ) : filteredUsers.length === 0 ? (
+              <tr>
+                <td className="px-4 py-8 text-center text-black" colSpan={7}>Không có người dùng phù hợp</td>
+              </tr>
+            ) : (
+              filteredUsers.map(u => (
+                <tr key={u.id} className="hover:bg-gray-50">
+                  <TableCell>
+                    <div className="leading-tight">
+                      <div className="font-medium text-black">{u.name}</div>
+                      <div className="text-black text-xs mt-1">{u.gender}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{u.email}</TableCell>
+                  <TableCell>{u.phone}</TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div>{u.province}</div>
+                      <div className="text-gray-600">{u.city}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className={getRoleStyle(u.role)}>
+                      {u.role}
+                    </span>
+                  </TableCell>
+                  <TableCell>{u.createdAt}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-4 text-sm">
+                      <button className="text-black hover:underline" onClick={() => setViewing(u)}>Xem</button>
+                      <button className="text-black hover:underline" onClick={() => setEditing({ ...u })}>Sửa</button>
+                      <button className="text-black hover:underline" onClick={() => setDeleting(u)}>Xóa</button>
+                    </div>
+                  </TableCell>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
@@ -253,7 +392,9 @@ const UserManagementContent = () => {
             <div><b>Email:</b> {viewing.email}</div>
             <div><b>SĐT:</b> {viewing.phone}</div>
             <div><b>Giới tính:</b> {viewing.gender}</div>
-            <div><b>Vai trò:</b> {viewing.role}</div>
+            <div><b>Tỉnh/Thành phố:</b> {viewing.province}</div>
+            <div><b>Quận/Huyện:</b> {viewing.city}</div>
+            <div><b>Vai trò:</b> <span className={getRoleStyle(viewing.role)}>{viewing.role}</span></div>
             <div><b>Ngày tạo:</b> {viewing.createdAt}</div>
           </div>
         )}
@@ -264,8 +405,32 @@ const UserManagementContent = () => {
         {editing && (
           <div className="space-y-3">
             <input value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Tên" />
-            <input value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email" />
+            <input value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email (phải có @gmail.com)" />
             <input value={editing.phone} onChange={e => setEditing({ ...editing, phone: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Số điện thoại" />
+            <select 
+              value={editing.province || ''} 
+              onChange={e => {
+                const newProvince = e.target.value;
+                setEditing({ ...editing, province: newProvince, city: '' });
+              }} 
+              className="w-full border rounded px-3 py-2 bg-white text-black"
+            >
+              <option value="">Chọn Tỉnh/Thành phố</option>
+              {PROVINCES.map(province => (
+                <option key={province.name} value={province.name}>{province.name}</option>
+              ))}
+            </select>
+            <select 
+              value={editing.city || ''} 
+              onChange={e => setEditing({ ...editing, city: e.target.value })} 
+              className="w-full border rounded px-3 py-2 bg-white text-black"
+              disabled={!editing.province}
+            >
+              <option value="">Chọn Quận/Huyện</option>
+              {editing.province && PROVINCES.find(p => p.name === editing.province)?.cities.map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
             <select value={editing.gender || 'Nam'} onChange={e => setEditing({ ...editing, gender: e.target.value })} className="w-full border rounded px-3 py-2 bg-white text-black">
               <option value="Nam">Nam</option>
               <option value="Nữ">Nữ</option>
@@ -289,19 +454,47 @@ const UserManagementContent = () => {
         {creating && (
           <div className="space-y-3">
             <input value={creating.name} onChange={e => setCreating({ ...creating, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Tên" />
-            <input value={creating.email} onChange={e => { setCreating({ ...creating, email: e.target.value }); setCreateErrors({ ...createErrors, email: undefined }); }} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email" />
+            <input value={creating.email} onChange={e => { setCreating({ ...creating, email: e.target.value }); setCreateErrors({ ...createErrors, email: undefined }); }} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email (phải có @gmail.com)" />
             {createErrors.email && <p className="text-red-600 text-sm">{createErrors.email}</p>}
             <input
               value={creating.password || ''}
-              onChange={e => setCreating({ ...creating, password: e.target.value })}
+              onChange={e => { 
+                setCreating({ ...creating, password: e.target.value }); 
+                setCreateErrors({ ...createErrors, password: undefined }); 
+              }}
               className="w-full border border-gray-300 rounded px-3 py-2 text-black bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Mật khẩu"
+              placeholder="Mật khẩu (tối thiểu 6 ký tự)"
               type="password"
               autoComplete="new-password"
               style={{ backgroundColor: '#ffffff', color: '#000000', WebkitBoxShadow: '0 0 0px 1000px #ffffff inset', borderColor: '#d1d5db' }}
             />
+            {createErrors.password && <p className="text-red-600 text-sm">{createErrors.password}</p>}
             <input value={creating.phone} onChange={e => { setCreating({ ...creating, phone: e.target.value }); setCreateErrors({ ...createErrors, phone: undefined }); }} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Số điện thoại" />
             {createErrors.phone && <p className="text-red-600 text-sm">{createErrors.phone}</p>}
+            <select 
+              value={creating.province || ''} 
+              onChange={e => {
+                const newProvince = e.target.value;
+                setCreating({ ...creating, province: newProvince, city: '' });
+              }} 
+              className="w-full border rounded px-3 py-2 bg-white text-black"
+            >
+              <option value="">Chọn Tỉnh/Thành phố</option>
+              {PROVINCES.map(province => (
+                <option key={province.name} value={province.name}>{province.name}</option>
+              ))}
+            </select>
+            <select 
+              value={creating.city || ''} 
+              onChange={e => setCreating({ ...creating, city: e.target.value })} 
+              className="w-full border rounded px-3 py-2 bg-white text-black"
+              disabled={!creating.province}
+            >
+              <option value="">Chọn Quận/Huyện</option>
+              {creating.province && PROVINCES.find(p => p.name === creating.province)?.cities.map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
             <select value={creating.gender || 'Nam'} onChange={e => setCreating({ ...creating, gender: e.target.value })} className="w-full border rounded px-3 py-2 bg-white text-black">
               <option value="Nam">Nam</option>
               <option value="Nữ">Nữ</option>

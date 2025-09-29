@@ -16,6 +16,17 @@ const PORT = process.env.PORT || 5000;
 app.use(cors()); // cho phép gọi API từ domain khác (React)
 app.use(express.json()); // parse body JSON
 
+// Debug middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  if (req.headers.authorization) {
+    console.log('Authorization header:', req.headers.authorization.substring(0, 20) + '...');
+  } else {
+    console.log('No authorization header');
+  }
+  next();
+});
+
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
