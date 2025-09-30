@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, Film, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -161,14 +162,14 @@ const Login = () => {
               <label className="block text-sm font-medium text-yellow-400">
                 Email
               </label>
-              <div className="input-wrapper">
-                <Mail className="input-icon" />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="input-field"
+                  className="w-full pl-12 pr-4 py-3 bg-gray-800/80 border border-yellow-400/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300"
                   placeholder="Nhập email của bạn"
                 />
               </div>
@@ -182,20 +183,20 @@ const Login = () => {
               <label className="block text-sm font-medium text-yellow-400">
                 Mật khẩu
               </label>
-              <div className="input-wrapper">
-                <Lock className="input-icon" />
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="input-field"
+                  className="w-full pl-12 pr-12 py-3 bg-gray-800/80 border border-yellow-400/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300"
                   placeholder="Nhập mật khẩu của bạn"
                 />
                 <button
                   type="button"
                   onClick={togglePasswordVisibility}
-                  className="toggle-password-btn"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-yellow-400 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
