@@ -6,6 +6,8 @@ import HomePage from "./components/HomePage";
 import Profile from "./components/Profile";
 import BranchManagement from "./components/Admin/BranchManagement";
 import AdminDashboard from "./components/Admin/AdminDashboard";
+import MovieManagement from './components/Admin/MovieManagement';
+import ItemManagement from './components/Admin/ItemManagement';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
@@ -13,7 +15,6 @@ import './style/adminLayout.css';
 import Register from './Register';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
-import MovieManagement from './components/Admin/MovieManagement';
 
 const AppInner = () => {
   const { isAuthenticated, isAdmin } = useAuth();
@@ -71,6 +72,10 @@ const AppInner = () => {
         <Route 
           path="/admin/movies" 
           element={isAdmin ?<MovieManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/items" 
+          element={isAdmin ? <ItemManagement /> : <Navigate to="/home" />} 
         />
         <Route 
           path="/admin/bookings" 

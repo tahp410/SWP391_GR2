@@ -12,7 +12,8 @@ import {
   LogOut,
   User,
   Bell,
-  Search
+  Search,
+  ShoppingBag
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../style/adminLayout.css';
@@ -36,6 +37,7 @@ const AdminLayout = ({ children, title = 'Dashboard' }) => {
     { id: 'branches', label: 'Chi Nhánh', icon: Building2, path: '/admin/branches' },
     { id: 'users', label: 'Người Dùng', icon: Users, path: '/admin/users' },
     { id: 'movies', label: 'Phim', icon: Film, path: '/admin/movies' },
+    { id: 'items', label: 'Sản Phẩm', icon: ShoppingBag, path: '/admin/items' },
     { id: 'bookings', label: 'Đặt Vé', icon: Ticket, path: '/admin/bookings' },
     { id: 'settings', label: 'Cài Đặt', icon: Settings, path: '/admin/settings' }
   ];
