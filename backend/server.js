@@ -8,7 +8,7 @@ import userRoutes from './routes/userRoutes.js';
 import branchRoutes from './routes/branchRoutes.js';
 import movieRoutes from './routes/movieRoutes.js';
 import registerRoutes from './routes/register.js';
-
+import itemRoutes from "./routes/itemRoutes.js";
 dotenv.config(); // đọc biến môi trường từ file .env
 connectDB();
 
@@ -25,6 +25,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api', registerRoutes);
+app.use("/api/items", itemRoutes);
 // Route test
 app.get("/", (req, res) => {
   res.send("🚀 Backend server is running!");
