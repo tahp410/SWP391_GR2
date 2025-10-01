@@ -1,346 +1,274 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  Search,
-  Plus,
-  Edit2,
-  Trash2,
-  Eye,
-  X,
-  Coffee,
-  ShoppingBag,
-} from "lucide-react";
-import AdminLayout from "./AdminLayout";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Plus, Edit2, Trash2, Eye, X, Coffee, ShoppingBag, Upload, Link } from 'lucide-react';
+import AdminLayout from './AdminLayout';
 
 const ItemManagement = () => {
-  const [items, setItems] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    type: "",
-    price: "",
-    cost: "",
-    image_url: "",
+  const [state, setState] = useState({
+    items: [], 
+    searchTerm: '', 
+    loading: true,
+    showForm: false, 
+    showDetailModal: false, 
+    editingItem: null,
+    formData: { name: '', type: '', price: '', cost: '', image_url: '', image_file: null },
+    message: { type: '', text: '' },
+    imagePreview: '',
+    uploadMethod: 'url',
+    uploading: false
   });
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: "", text: "" });
 
-  // API base URL - thay đổi theo server của bạn
-  const API_BASE_URL = "http://localhost:5000/api";
+  const API_BASE = 'http://localhost:5000/api';
+  
+  const showMessage = (type, text) => setState(prev => ({ 
+    ...prev, message: { type, text } 
+  }));
 
-  // Lấy token từ localStorage
-  const getToken = () => {
-    return localStorage.getItem("token");
-  };
-
-  // Show message
-  const showMessage = (type, text) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage({ type: "", text: "" }), 3000);
-  };
-
-  // Fetch all items
-  const fetchItems = useCallback(async () => {
+  const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    
     try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/items`);
+      setState(prev => ({ ...prev, uploading: true }));
+      const response = await fetch(`${API_BASE}/upload/image`, {
+        method: 'POST',
+        body: formData
+      });
+      
       if (response.ok) {
-        const data = await response.json();
-        setItems(data);
+        const result = await response.json();
+        setState(prev => ({ ...prev, uploading: false }));
+        return result.imageUrl;
       } else {
-        showMessage("error", "Lỗi khi tải danh sách sản phẩm");
+        setState(prev => ({ ...prev, uploading: false }));
+        showMessage('error', 'Lỗi khi tải ảnh lên server');
+        return null;
       }
     } catch (error) {
-      console.error("Error fetching items:", error);
-      showMessage("error", "Lỗi khi tải danh sách sản phẩm");
-    } finally {
-      setLoading(false);
+      setState(prev => ({ ...prev, uploading: false }));
+      showMessage('error', 'Lỗi khi tải ảnh lên server');
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (state.message.text) {
+      const timer = setTimeout(() => setState(prev => ({ 
+        ...prev, message: { type: '', text: '' } 
+      })), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [state.message.text]);
+
+  const fetchItems = useCallback(async () => {
+    try {
+      setState(prev => ({ ...prev, loading: true }));
+      const response = await fetch(`${API_BASE}/items`);
+      if (response.ok) {
+        const items = await response.json();
+        setState(prev => ({ ...prev, items, loading: false }));
+      } else {
+        setState(prev => ({ ...prev, loading: false }));
+        showMessage('error', 'Lỗi khi tải danh sách sản phẩm');
+      }
+    } catch (error) {
+      setState(prev => ({ ...prev, loading: false }));
+      showMessage('error', 'Lỗi khi tải danh sách sản phẩm');
     }
   }, []);
 
-  // Search items
-  const searchItems = useCallback(
-    async (term) => {
-      if (!term.trim()) {
-        fetchItems();
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/items/search?q=${encodeURIComponent(term)}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setItems(data);
-        } else {
-          showMessage("error", "Lỗi khi tìm kiếm sản phẩm");
-        }
-      } catch (error) {
-        console.error("Error searching items:", error);
-        showMessage("error", "Lỗi khi tìm kiếm sản phẩm");
-      }
-    },
-    [fetchItems]
-  );
-
-  // Create item
-  const createItem = async (data) => {
-    try {
-      const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/items`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (response.ok) {
-        const newItem = await response.json();
-        setItems((prev) => [...prev, newItem]);
-        showMessage("success", "Thêm sản phẩm thành công");
-      } else {
-        const error = await response.json();
-        showMessage("error", error.message || "Lỗi khi thêm sản phẩm");
-      }
-    } catch (error) {
-      console.error("Error creating item:", error);
-      showMessage("error", "Lỗi khi thêm sản phẩm");
-    }
-  };
-
-  // Update item
-  const updateItem = async (id, data) => {
-    try {
-      const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/items/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (response.ok) {
-        const updatedItem = await response.json();
-        setItems((prev) => prev.map((item) => (item._id === id ? updatedItem : item)));
-        showMessage("success", "Cập nhật sản phẩm thành công");
-      } else {
-        const error = await response.json();
-        showMessage("error", error.message || "Lỗi khi cập nhật sản phẩm");
-      }
-    } catch (error) {
-      console.error("Error updating item:", error);
-      showMessage("error", "Lỗi khi cập nhật sản phẩm");
-    }
-  };
-
-  // Delete item
-  const deleteItem = async (id) => {
-    try {
-      const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/items/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        setItems((prev) => prev.filter((item) => item._id !== id));
-        showMessage("success", "Xóa sản phẩm thành công");
-      } else {
-        const error = await response.json();
-        showMessage("error", error.message || "Lỗi khi xóa sản phẩm");
-      }
-    } catch (error) {
-      console.error("Error deleting item:", error);
-      showMessage("error", "Lỗi khi xóa sản phẩm");
-    }
-  };
-
-  // Load items on component mount
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
-
-  // Search functionality
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim()) {
-        searchItems(searchTerm);
-      } else {
-        fetchItems();
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, fetchItems, searchItems]);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const { name, type, price, cost, image_url, image_file } = state.formData;
+    
+    if (!name || !type || !price || !cost) {
+      return showMessage('error', 'Vui lòng điền đầy đủ thông tin bắt buộc');
+    }
 
-    // Validate form data
-    if (!formData.name.trim() || !formData.type || !formData.price || !formData.cost) {
-      showMessage("error", "Vui lòng điền đầy đủ thông tin bắt buộc");
-      return;
+    // Validation ảnh - bắt buộc
+    if (!state.editingItem && !image_url.trim() && !image_file) {
+      return showMessage('error', 'Vui lòng thêm ảnh sản phẩm (URL hoặc tải từ máy)');
+    }
+
+    if (state.editingItem && !image_url.trim() && !image_file && !state.editingItem.image_url) {
+      return showMessage('error', 'Vui lòng thêm ảnh sản phẩm (URL hoặc tải từ máy)');
+    }
+
+    let finalImageUrl = image_url.trim();
+    
+    if (image_file) {
+      const uploadedUrl = await uploadImage(image_file);
+      if (!uploadedUrl) return;
+      finalImageUrl = uploadedUrl;
     }
 
     const submitData = {
-      name: formData.name.trim(),
-      type: formData.type,
-      price: Number(formData.price),
-      cost: Number(formData.cost),
-      image_url: formData.image_url.trim(),
+      name: name.trim(),
+      type,
+      price: Number(price),
+      cost: Number(cost),
+      image_url: finalImageUrl
     };
 
-    if (selectedItem) {
-      await updateItem(selectedItem._id, submitData);
-    } else {
-      await createItem(submitData);
-    }
+    try {
+      const url = state.editingItem ? `${API_BASE}/items/${state.editingItem._id}` : `${API_BASE}/items`;
+      const response = await fetch(url, {
+        method: state.editingItem ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submitData),
+      });
 
-    closeModal();
-  };
-
-  const handleEdit = (item) => {
-    setSelectedItem(item);
-    setFormData({
-      name: item.name || "",
-      type: item.type || "",
-      price: item.price || "",
-      cost: item.cost || "",
-      image_url: item.image_url || "",
-    });
-    setShowModal(true);
-  };
-
-  const handleDeleteConfirm = async (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa sản phẩm này?")) {
-      await deleteItem(id);
+      if (response.ok) {
+        await fetchItems();
+        resetForm();
+        showMessage('success', `Sản phẩm ${state.editingItem ? 'cập nhật' : 'tạo'} thành công!`);
+      } else {
+        const error = await response.json();
+        showMessage('error', error.message || 'Thao tác thất bại');
+      }
+    } catch (error) {
+      showMessage('error', 'Lỗi khi lưu sản phẩm');
     }
   };
 
-  const handleViewDetail = (item) => {
-    setSelectedItem(item);
-    setShowDetailModal(true);
+  const handleEdit = (item) => setState(prev => ({
+    ...prev, 
+    editingItem: item, 
+    showForm: true,
+    formData: { 
+      name: item.name || '',
+      type: item.type || '',
+      price: item.price || '',
+      cost: item.cost || '',
+      image_url: item.image_url || '',
+      image_file: null
+    },
+    imagePreview: item.image_url || '',
+    uploadMethod: 'url'
+  }));
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
+    try {
+      const response = await fetch(`${API_BASE}/items/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        await fetchItems();
+        showMessage('success', 'Sản phẩm đã xóa thành công!');
+      } else showMessage('error', 'Lỗi khi xóa sản phẩm');
+    } catch (error) {
+      showMessage('error', 'Lỗi khi thao tác sản phẩm');
+    }
   };
 
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedItem(null);
-    setFormData({
-      name: "",
-      type: "",
-      price: "",
-      cost: "",
-      image_url: "",
-    });
-  };
+  const resetForm = () => setState(prev => ({
+    ...prev, 
+    formData: { name: '', type: '', price: '', cost: '', image_url: '', image_file: null },
+    editingItem: null, 
+    showForm: false,
+    imagePreview: '',
+    uploadMethod: 'url'
+  }));
 
-  const filteredItems = items.filter((item) => {
-    const name = item.name || "";
-    const type = item.type || "";
-    return (
-      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      type.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  const handleViewDetail = (item) => setState(prev => ({
+    ...prev, editingItem: item, showDetailModal: true
+  }));
+
+  const updateFormField = (field, value) => setState(prev => ({
+    ...prev, 
+    formData: { ...prev.formData, [field]: value },
+    ...(field === 'image_url' && value ? { imagePreview: value } : {})
+  }));
+
+  const filteredItems = state.items.filter(item => 
+    (item.name || '').toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+    (item.type || '').toLowerCase().includes(state.searchTerm.toLowerCase())
+  );
 
   const getItemIcon = (type) => {
-    switch (type) {
-      case "popcorn":
-        return <ShoppingBag size={20} className="text-yellow-600" />;
-      case "drink":
-        return <Coffee size={20} className="text-blue-600" />;
-      case "snack":
-        return <ShoppingBag size={20} className="text-green-600" />;
-      default:
-        return <ShoppingBag size={20} className="text-gray-600" />;
-    }
+    const iconMap = {
+      popcorn: <ShoppingBag size={20} className="text-yellow-600" />,
+      drink: <Coffee size={20} className="text-blue-600" />,
+      snack: <ShoppingBag size={20} className="text-green-600" />,
+      default: <ShoppingBag size={20} className="text-gray-600" />
+    };
+    return iconMap[type] || iconMap.default;
   };
 
   const getItemTypeText = (type) => {
-    switch (type) {
-      case "popcorn":
-        return "Bỏng ngô";
-      case "drink":
-        return "Đồ uống";
-      case "snack":
-        return "Đồ ăn vặt";
-      default:
-        return type;
-    }
+    const typeMap = { popcorn: "Bỏng ngô", drink: "Đồ uống", snack: "Đồ ăn vặt" };
+    return typeMap[type] || type;
   };
 
   const getItemTypeColor = (type) => {
-    switch (type) {
-      case "popcorn":
-        return "bg-yellow-100 text-yellow-700";
-      case "drink":
-        return "bg-blue-100 text-blue-700";
-      case "snack":
-        return "bg-green-100 text-green-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
+    const colorMap = {
+      popcorn: "bg-yellow-100 text-yellow-700",
+      drink: "bg-blue-100 text-blue-700", 
+      snack: "bg-green-100 text-green-700",
+      default: "bg-gray-100 text-gray-700"
+    };
+    return colorMap[type] || colorMap.default;
   };
+
+  const FormField = ({ label, type = 'text', required, ...props }) => (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {type === 'textarea' ? (
+        <textarea 
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+          rows="3" 
+          {...props} 
+        />
+      ) : type === 'select' ? (
+        <select 
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+          {...props}
+        >
+          {props.children}
+        </select>
+      ) : (
+        <input 
+          type={type}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          {...props} 
+        />
+      )}
+    </div>
+  );
 
   return (
     <AdminLayout title="Quản Lý Sản Phẩm">
       <div className="p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Quản Lý Sản Phẩm
-          </h1>
-          <p className="text-gray-600">Quản lý thông tin các sản phẩm bán tại rạp</p>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Quản Lý Sản Phẩm</h1>
+          <p className="text-gray-600">Quản lý thông tin các sản phẩm bán tại rạp (Bắt buộc có ảnh)</p>
         </div>
 
-        {/* Message */}
-        {message.text && (
-          <div
-            className={`mb-4 p-4 rounded-lg ${
-              message.type === "success"
-                ? "bg-green-100 text-green-700"
-                : message.type === "error"
-                ? "bg-red-100 text-red-700"
-                : "bg-blue-100 text-blue-700"
-            }`}
-          >
-            {message.text}
+        {state.message.text && (
+          <div className={`mb-4 p-4 rounded-lg ${
+            state.message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          }`}>
+            {state.message.text}
           </div>
         )}
 
-        {/* Search and Add */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-4 justify-between">
             <div className="relative flex-1">
-              <Search
-                className="absolute left-3 top-3 text-gray-400"
-                size={20}
-              />
+              <Search className="absolute left-3 top-3 text-gray-400" size={20} />
               <input
                 type="text"
                 placeholder="Tìm kiếm theo tên hoặc loại sản phẩm..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={state.searchTerm}
+                onChange={(e) => setState(prev => ({ ...prev, searchTerm: e.target.value }))}
               />
             </div>
             <button
-              onClick={() => setShowModal(true)}
-              className="btn btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              onClick={() => setState(prev => ({ ...prev, showForm: true }))}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
               <Plus size={20} />
               Thêm Sản Phẩm Mới
@@ -348,30 +276,18 @@ const ItemManagement = () => {
           </div>
         </div>
 
-        {/* Loading */}
-        {loading && (
-          <div className="text-center py-12 text-gray-500">
-            Đang tải danh sách sản phẩm...
-          </div>
-        )}
-
-        {/* Items List */}
-        {!loading && (
+        {state.loading ? (
+          <div className="text-center py-12 text-gray-500">Đang tải danh sách sản phẩm...</div>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.map((item) => (
-              <div
-                key={item._id}
-                className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-              >
-                {/* Image */}
+              <div key={item._id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                 {item.image_url && (
                   <img
                     src={item.image_url}
                     alt={item.name}
                     className="w-full h-40 object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 )}
                 
@@ -380,12 +296,8 @@ const ItemManagement = () => {
                     <div className="flex items-center gap-3">
                       {getItemIcon(item.type)}
                       <div>
-                        <h3 className="text-xl font-semibold text-gray-800">
-                          {item.name}
-                        </h3>
-                        <span
-                          className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${getItemTypeColor(item.type)}`}
-                        >
+                        <h3 className="text-xl font-semibold text-gray-800">{item.name}</h3>
+                        <span className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${getItemTypeColor(item.type)}`}>
                           {getItemTypeText(item.type)}
                         </span>
                       </div>
@@ -429,7 +341,7 @@ const ItemManagement = () => {
                       Sửa
                     </button>
                     <button
-                      onClick={() => handleDeleteConfirm(item._id)}
+                      onClick={() => handleDelete(item._id)}
                       className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
                     >
                       <Trash2 size={16} />
@@ -440,123 +352,173 @@ const ItemManagement = () => {
               </div>
             ))}
 
-            {filteredItems.length === 0 && !loading && (
+            {filteredItems.length === 0 && !state.loading && (
               <div className="col-span-full text-center py-12 text-gray-500">
-                {searchTerm
-                  ? "Không tìm thấy sản phẩm nào phù hợp"
-                  : "Chưa có sản phẩm nào"}
+                {state.searchTerm ? "Không tìm thấy sản phẩm nào phù hợp" : "Chưa có sản phẩm nào"}
               </div>
             )}
           </div>
         )}
 
         {/* Add/Edit Modal */}
-        {showModal && (
+        {state.showForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold">
-                    {selectedItem ? "Chỉnh Sửa Sản Phẩm" : "Thêm Sản Phẩm Mới"}
+                    {state.editingItem ? "Chỉnh Sửa Sản Phẩm" : "Thêm Sản Phẩm Mới"}
                   </h2>
-                  <button
-                    onClick={closeModal}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
+                  <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
                     <X size={24} />
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tên sản phẩm *
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
+                <form onSubmit={handleSubmit}>
+                  <FormField
+                    label="Tên sản phẩm"
+                    required
+                    value={state.formData.name}
+                    onChange={(e) => updateFormField('name', e.target.value)}
+                  />
+                  
+                  <FormField
+                    label="Loại sản phẩm"
+                    type="select"
+                    required
+                    value={state.formData.type}
+                    onChange={(e) => updateFormField('type', e.target.value)}
+                  >
+                    <option value="">Chọn loại sản phẩm</option>
+                    <option value="popcorn">Bỏng ngô</option>
+                    <option value="drink">Đồ uống</option>
+                    <option value="snack">Đồ ăn vặt</option>
+                  </FormField>
+                  
+                  <FormField
+                    label="Giá bán (VNĐ)"
+                    type="number"
+                    required
+                    min="0"
+                    value={state.formData.price}
+                    onChange={(e) => updateFormField('price', e.target.value)}
+                  />
+                  
+                  <FormField
+                    label="Giá vốn (VNĐ)"
+                    type="number"
+                    required
+                    min="0"
+                    value={state.formData.cost}
+                    onChange={(e) => updateFormField('cost', e.target.value)}
+                  />
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Loại sản phẩm *
+                  {/* Image Upload Section */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Ảnh sản phẩm <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      name="type"
-                      value={formData.type}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    >
-                      <option value="">Chọn loại sản phẩm</option>
-                      <option value="popcorn">Bỏng ngô</option>
-                      <option value="drink">Đồ uống</option>
-                      <option value="snack">Đồ ăn vặt</option>
-                    </select>
-                  </div>
+                    
+                    <div className="flex gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setState(prev => ({ ...prev, uploadMethod: "url" }))}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
+                          state.uploadMethod === "url" 
+                            ? "bg-blue-100 text-blue-700 border border-blue-300" 
+                            : "bg-gray-100 text-gray-600 border border-gray-300"
+                        }`}
+                      >
+                        <Link size={16} />
+                        URL Link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setState(prev => ({ ...prev, uploadMethod: "file" }))}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
+                          state.uploadMethod === "file" 
+                            ? "bg-blue-100 text-blue-700 border border-blue-300" 
+                            : "bg-gray-100 text-gray-600 border border-gray-300"
+                        }`}
+                      >
+                        <Upload size={16} />
+                        Tải lên
+                      </button>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Giá bán (VNĐ) *
-                    </label>
-                    <input
-                      type="number"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleInputChange}
-                      min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
+                    {state.uploadMethod === "url" && (
+                      <input
+                        type="url"
+                        value={state.formData.image_url}
+                        onChange={(e) => updateFormField('image_url', e.target.value)}
+                        placeholder="https://example.com/image.jpg"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Giá vốn (VNĐ) *
-                    </label>
-                    <input
-                      type="number"
-                      name="cost"
-                      value={formData.cost}
-                      onChange={handleInputChange}
-                      min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
+                    {state.uploadMethod === "file" && (
+                      <div className="space-y-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              if (!file.type.startsWith('image/')) {
+                                showMessage("error", "Vui lòng chọn file ảnh hợp lệ");
+                                return;
+                              }
+                              if (file.size > 5 * 1024 * 1024) {
+                                showMessage("error", "Kích thước ảnh không được vượt quá 5MB");
+                                return;
+                              }
+                              const reader = new FileReader();
+                              reader.onload = (e) => {
+                                setState(prev => ({
+                                  ...prev,
+                                  imagePreview: e.target.result,
+                                  formData: { ...prev.formData, image_file: file }
+                                }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                        <p className="text-xs text-gray-500">Chấp nhận: JPG, PNG, GIF. Tối đa 5MB</p>
+                        {state.uploading && (
+                          <p className="text-sm text-blue-600">Đang tải ảnh lên...</p>
+                        )}
+                      </div>
+                    )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      URL hình ảnh
-                    </label>
-                    <input
-                      type="url"
-                      name="image_url"
-                      value={formData.image_url}
-                      onChange={handleInputChange}
-                      placeholder="https://example.com/image.jpg"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                    {state.imagePreview && (
+                      <div className="mt-3">
+                        <p className="text-sm text-gray-600 mb-2">Xem trước:</p>
+                        <img
+                          src={state.imagePreview}
+                          alt="Preview"
+                          className="w-32 h-32 object-cover rounded-lg border"
+                          onError={() => setState(prev => ({ ...prev, imagePreview: "" }))}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex gap-3 pt-4">
                     <button
                       type="button"
-                      onClick={closeModal}
+                      onClick={resetForm}
                       className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       Hủy
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      disabled={state.uploading}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                     >
-                      {selectedItem ? "Cập nhật" : "Thêm"}
+                      {state.uploading ? "Đang tải..." : (state.editingItem ? "Cập nhật" : "Thêm")}
                     </button>
                   </div>
                 </form>
@@ -566,14 +528,14 @@ const ItemManagement = () => {
         )}
 
         {/* Detail Modal */}
-        {showDetailModal && selectedItem && (
+        {state.showDetailModal && state.editingItem && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold">Chi Tiết Sản Phẩm</h2>
                   <button
-                    onClick={() => setShowDetailModal(false)}
+                    onClick={() => setState(prev => ({ ...prev, showDetailModal: false }))}
                     className="text-gray-500 hover:text-gray-700"
                   >
                     <X size={24} />
@@ -581,28 +543,23 @@ const ItemManagement = () => {
                 </div>
 
                 <div className="space-y-4">
-                  {/* Image */}
-                  {selectedItem.image_url && (
+                  {state.editingItem.image_url && (
                     <div className="mb-4">
                       <img
-                        src={selectedItem.image_url}
-                        alt={selectedItem.name}
+                        src={state.editingItem.image_url}
+                        alt={state.editingItem.name}
                         className="w-full h-48 object-cover rounded-lg"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
                       />
                     </div>
                   )}
 
                   <div className="flex items-center gap-3 mb-4">
-                    {getItemIcon(selectedItem.type)}
+                    {getItemIcon(state.editingItem.type)}
                     <div>
-                      <h3 className="text-lg font-semibold">{selectedItem.name}</h3>
-                      <span
-                        className={`inline-block px-2 py-1 text-xs rounded-full ${getItemTypeColor(selectedItem.type)}`}
-                      >
-                        {getItemTypeText(selectedItem.type)}
+                      <h3 className="text-lg font-semibold">{state.editingItem.name}</h3>
+                      <span className={`inline-block px-2 py-1 text-xs rounded-full ${getItemTypeColor(state.editingItem.type)}`}>
+                        {getItemTypeText(state.editingItem.type)}
                       </span>
                     </div>
                   </div>
@@ -611,25 +568,25 @@ const ItemManagement = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Giá bán:</span>
                       <span className="text-lg font-bold text-green-600">
-                        {selectedItem.price?.toLocaleString()} VNĐ
+                        {state.editingItem.price?.toLocaleString()} VNĐ
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Giá vốn:</span>
                       <span className="text-lg font-medium text-orange-600">
-                        {selectedItem.cost?.toLocaleString()} VNĐ
+                        {state.editingItem.cost?.toLocaleString()} VNĐ
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Lợi nhuận:</span>
                       <span className="text-lg font-bold text-blue-600">
-                        {((selectedItem.price - selectedItem.cost) || 0).toLocaleString()} VNĐ
+                        {((state.editingItem.price - state.editingItem.cost) || 0).toLocaleString()} VNĐ
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Tỷ lệ lợi nhuận:</span>
                       <span className="text-lg font-bold text-purple-600">
-                        {selectedItem.cost > 0 ? (((selectedItem.price - selectedItem.cost) / selectedItem.cost * 100).toFixed(1)) : 0}%
+                        {state.editingItem.cost > 0 ? (((state.editingItem.price - state.editingItem.cost) / state.editingItem.cost * 100).toFixed(1)) : 0}%
                       </span>
                     </div>
                   </div>
@@ -637,15 +594,15 @@ const ItemManagement = () => {
                   <div className="flex gap-3 pt-4">
                     <button
                       onClick={() => {
-                        setShowDetailModal(false);
-                        handleEdit(selectedItem);
+                        setState(prev => ({ ...prev, showDetailModal: false }));
+                        handleEdit(state.editingItem);
                       }}
                       className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       Chỉnh sửa
                     </button>
                     <button
-                      onClick={() => setShowDetailModal(false)}
+                      onClick={() => setState(prev => ({ ...prev, showDetailModal: false }))}
                       className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       Đóng

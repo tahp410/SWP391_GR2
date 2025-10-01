@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import connectDB from "./config/db.js";
 
 import User from "./models/userModel.js";
@@ -9,6 +11,13 @@ import branchRoutes from './routes/branchRoutes.js';
 import movieRoutes from './routes/movieRoutes.js';
 import registerRoutes from './routes/register.js';
 import itemRoutes from "./routes/itemRoutes.js";
+import comboRoutes from "./routes/comboRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
+
+// ES modules equivalent của __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenv.config(); // đọc biến môi trường từ file .env
 connectDB();
 
@@ -19,13 +28,17 @@ const PORT = process.env.PORT || 5000;
 app.use(cors()); // cho phép gọi API từ domain khác (React)
 app.use(express.json()); // parse body JSON
 
-// Routes
+// Serve static files cho uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Routes
 app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api', registerRoutes);
 app.use("/api/items", itemRoutes);
+app.use("/api/combos", comboRoutes);
+app.use("/api/upload", uploadRoutes);
 // Route test
 app.get("/", (req, res) => {
   res.send("🚀 Backend server is running!");
