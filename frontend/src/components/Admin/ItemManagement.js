@@ -10,7 +10,7 @@ const ItemManagement = () => {
     showForm: false, 
     showDetailModal: false, 
     editingItem: null,
-    formData: { name: '', type: '', price: '', cost: '', image_url: '', image_file: null },
+    formData: { name: '', type: '', size: '', price: '', cost: '', image_url: '', image_file: null },
     message: { type: '', text: '' },
     imagePreview: '',
     uploadMethod: 'url',
@@ -18,6 +18,20 @@ const ItemManagement = () => {
   });
 
   const API_BASE = 'http://localhost:5000/api';
+  
+  // Get token from localStorage
+  const getToken = () => {
+    return localStorage.getItem('token');
+  };
+
+  // Create headers with token
+  const getHeaders = useCallback(() => {
+    const token = getToken();
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+  }, []);
   
   const showMessage = (type, text) => setState(prev => ({ 
     ...prev, message: { type, text } 
@@ -62,7 +76,9 @@ const ItemManagement = () => {
   const fetchItems = useCallback(async () => {
     try {
       setState(prev => ({ ...prev, loading: true }));
-      const response = await fetch(`${API_BASE}/items`);
+      const response = await fetch(`${API_BASE}/items`, {
+        headers: getHeaders()
+      });
       if (response.ok) {
         const items = await response.json();
         setState(prev => ({ ...prev, items, loading: false }));
@@ -74,15 +90,15 @@ const ItemManagement = () => {
       setState(prev => ({ ...prev, loading: false }));
       showMessage('error', 'Lỗi khi tải danh sách sản phẩm');
     }
-  }, []);
+  }, [getHeaders]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { name, type, price, cost, image_url, image_file } = state.formData;
+    const { name, type, size, price, cost, image_url, image_file } = state.formData;
     
-    if (!name || !type || !price || !cost) {
+    if (!name || !type || !size || !price || !cost) {
       return showMessage('error', 'Vui lòng điền đầy đủ thông tin bắt buộc');
     }
 
@@ -106,6 +122,7 @@ const ItemManagement = () => {
     const submitData = {
       name: name.trim(),
       type,
+      size,
       price: Number(price),
       cost: Number(cost),
       image_url: finalImageUrl
@@ -115,7 +132,7 @@ const ItemManagement = () => {
       const url = state.editingItem ? `${API_BASE}/items/${state.editingItem._id}` : `${API_BASE}/items`;
       const response = await fetch(url, {
         method: state.editingItem ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify(submitData),
       });
 
@@ -139,6 +156,7 @@ const ItemManagement = () => {
     formData: { 
       name: item.name || '',
       type: item.type || '',
+      size: item.size || '',
       price: item.price || '',
       cost: item.cost || '',
       image_url: item.image_url || '',
@@ -151,7 +169,10 @@ const ItemManagement = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
     try {
-      const response = await fetch(`${API_BASE}/items/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${API_BASE}/items/${id}`, { 
+        method: 'DELETE',
+        headers: getHeaders()
+      });
       if (response.ok) {
         await fetchItems();
         showMessage('success', 'Sản phẩm đã xóa thành công!');
@@ -163,7 +184,7 @@ const ItemManagement = () => {
 
   const resetForm = () => setState(prev => ({
     ...prev, 
-    formData: { name: '', type: '', price: '', cost: '', image_url: '', image_file: null },
+    formData: { name: '', type: '', size: '', price: '', cost: '', image_url: '', image_file: null },
     editingItem: null, 
     showForm: false,
     imagePreview: '',
@@ -174,11 +195,11 @@ const ItemManagement = () => {
     ...prev, editingItem: item, showDetailModal: true
   }));
 
-  const updateFormField = (field, value) => setState(prev => ({
+  const updateFormField = useCallback((field, value) => setState(prev => ({
     ...prev, 
     formData: { ...prev.formData, [field]: value },
     ...(field === 'image_url' && value ? { imagePreview: value } : {})
-  }));
+  })), []);
 
   const filteredItems = state.items.filter(item => 
     (item.name || '').toLowerCase().includes(state.searchTerm.toLowerCase()) ||
@@ -208,6 +229,27 @@ const ItemManagement = () => {
       default: "bg-gray-100 text-gray-700"
     };
     return colorMap[type] || colorMap.default;
+  };
+
+  const getSizeText = (size) => {
+    const sizeMap = { 
+      small: "Nhỏ (S)", 
+      medium: "Vừa (M)", 
+      large: "Lớn (L)", 
+      extra_large: "Cực lớn (XL)" 
+    };
+    return sizeMap[size] || size;
+  };
+
+  const getSizeColor = (size) => {
+    const colorMap = {
+      small: "bg-green-100 text-green-700",
+      medium: "bg-blue-100 text-blue-700",
+      large: "bg-orange-100 text-orange-700",
+      extra_large: "bg-red-100 text-red-700",
+      default: "bg-gray-100 text-gray-700"
+    };
+    return colorMap[size] || colorMap.default;
   };
 
   const FormField = ({ label, type = 'text', required, ...props }) => (
@@ -283,12 +325,20 @@ const ItemManagement = () => {
             {filteredItems.map((item) => (
               <div key={item._id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                 {item.image_url && (
-                  <img
-                    src={item.image_url}
-                    alt={item.name}
-                    className="w-full h-40 object-cover"
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
+                  <div className="w-full h-40 bg-gray-100 overflow-hidden">
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                      onError={(e) => { 
+                        e.target.style.display = 'none';
+                        e.target.parentElement.style.display = 'flex';
+                        e.target.parentElement.style.alignItems = 'center';
+                        e.target.parentElement.style.justifyContent = 'center';
+                        e.target.parentElement.innerHTML = '<div class="text-gray-400 text-sm">Không thể tải ảnh</div>';
+                      }}
+                    />
+                  </div>
                 )}
                 
                 <div className="p-6">
@@ -297,9 +347,16 @@ const ItemManagement = () => {
                       {getItemIcon(item.type)}
                       <div>
                         <h3 className="text-xl font-semibold text-gray-800">{item.name}</h3>
-                        <span className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${getItemTypeColor(item.type)}`}>
-                          {getItemTypeText(item.type)}
-                        </span>
+                        <div className="flex gap-2 mt-1">
+                          <span className={`inline-block px-2 py-1 text-xs rounded-full ${getItemTypeColor(item.type)}`}>
+                            {getItemTypeText(item.type)}
+                          </span>
+                          {item.size && (
+                            <span className={`inline-block px-2 py-1 text-xs rounded-full ${getSizeColor(item.size)}`}>
+                              {getSizeText(item.size)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -362,25 +419,32 @@ const ItemManagement = () => {
 
         {/* Add/Edit Modal */}
         {state.showForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold">
-                    {state.editingItem ? "Chỉnh Sửa Sản Phẩm" : "Thêm Sản Phẩm Mới"}
-                  </h2>
-                  <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
-                    <X size={24} />
-                  </button>
-                </div>
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2 className="modal-title">
+                  {state.editingItem ? "Chỉnh Sửa Sản Phẩm" : "Thêm Sản Phẩm Mới"}
+                </h2>
+                <button onClick={resetForm} className="modal-close">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="modal-body">
 
                 <form onSubmit={handleSubmit}>
-                  <FormField
-                    label="Tên sản phẩm"
-                    required
-                    value={state.formData.name}
-                    onChange={(e) => updateFormField('name', e.target.value)}
-                  />
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tên sản phẩm <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={state.formData.name}
+                      onChange={(e) => updateFormField('name', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Nhập tên sản phẩm"
+                      required
+                    />
+                  </div>
                   
                   <FormField
                     label="Loại sản phẩm"
@@ -396,22 +460,56 @@ const ItemManagement = () => {
                   </FormField>
                   
                   <FormField
-                    label="Giá bán (VNĐ)"
-                    type="number"
+                    label="Kích cỡ"
+                    type="select"
                     required
-                    min="0"
-                    value={state.formData.price}
-                    onChange={(e) => updateFormField('price', e.target.value)}
-                  />
+                    value={state.formData.size}
+                    onChange={(e) => updateFormField('size', e.target.value)}
+                  >
+                    <option value="">Chọn kích cỡ</option>
+                    <option value="small">Nhỏ (S)</option>
+                    <option value="medium">Vừa (M)</option>
+                    <option value="large">Lớn (L)</option>
+                    <option value="extra_large">Cực lớn (XL)</option>
+                  </FormField>
                   
-                  <FormField
-                    label="Giá vốn (VNĐ)"
-                    type="number"
-                    required
-                    min="0"
-                    value={state.formData.cost}
-                    onChange={(e) => updateFormField('cost', e.target.value)}
-                  />
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Giá bán (VNĐ) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      pattern="[0-9]*"
+                      inputMode="numeric"
+                      placeholder="Nhập giá bán"
+                      value={state.formData.price}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        updateFormField('price', value);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Giá vốn (VNĐ) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      pattern="[0-9]*"
+                      inputMode="numeric"
+                      placeholder="Nhập giá vốn"
+                      value={state.formData.cost}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        updateFormField('cost', value);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
 
                   {/* Image Upload Section */}
                   <div className="mb-4">
@@ -495,12 +593,14 @@ const ItemManagement = () => {
                     {state.imagePreview && (
                       <div className="mt-3">
                         <p className="text-sm text-gray-600 mb-2">Xem trước:</p>
-                        <img
-                          src={state.imagePreview}
-                          alt="Preview"
-                          className="w-32 h-32 object-cover rounded-lg border"
-                          onError={() => setState(prev => ({ ...prev, imagePreview: "" }))}
-                        />
+                        <div className="w-full max-w-xs">
+                          <img
+                            src={state.imagePreview}
+                            alt="Preview"
+                            className="w-full h-32 object-cover rounded-lg border shadow-sm"
+                            onError={() => setState(prev => ({ ...prev, imagePreview: "" }))}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -529,27 +629,34 @@ const ItemManagement = () => {
 
         {/* Detail Modal */}
         {state.showDetailModal && state.editingItem && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold">Chi Tiết Sản Phẩm</h2>
-                  <button
-                    onClick={() => setState(prev => ({ ...prev, showDetailModal: false }))}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2 className="modal-title">Chi Tiết Sản Phẩm</h2>
+                <button
+                  onClick={() => setState(prev => ({ ...prev, showDetailModal: false }))}
+                  className="modal-close"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="modal-body">
 
                 <div className="space-y-4">
                   {state.editingItem.image_url && (
-                    <div className="mb-4">
+                    <div className="mb-4 bg-gray-100 rounded-lg overflow-hidden">
                       <img
                         src={state.editingItem.image_url}
                         alt={state.editingItem.name}
-                        className="w-full h-48 object-cover rounded-lg"
-                        onError={(e) => { e.target.style.display = 'none'; }}
+                        className="w-full h-48 object-cover"
+                        onError={(e) => { 
+                          e.target.style.display = 'none';
+                          e.target.parentElement.style.display = 'flex';
+                          e.target.parentElement.style.alignItems = 'center';
+                          e.target.parentElement.style.justifyContent = 'center';
+                          e.target.parentElement.style.height = '12rem';
+                          e.target.parentElement.innerHTML = '<div class="text-gray-400">Không thể tải ảnh</div>';
+                        }}
                       />
                     </div>
                   )}
@@ -558,9 +665,16 @@ const ItemManagement = () => {
                     {getItemIcon(state.editingItem.type)}
                     <div>
                       <h3 className="text-lg font-semibold">{state.editingItem.name}</h3>
-                      <span className={`inline-block px-2 py-1 text-xs rounded-full ${getItemTypeColor(state.editingItem.type)}`}>
-                        {getItemTypeText(state.editingItem.type)}
-                      </span>
+                      <div className="flex gap-2 mt-1">
+                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${getItemTypeColor(state.editingItem.type)}`}>
+                          {getItemTypeText(state.editingItem.type)}
+                        </span>
+                        {state.editingItem.size && (
+                          <span className={`inline-block px-2 py-1 text-xs rounded-full ${getSizeColor(state.editingItem.size)}`}>
+                            {getSizeText(state.editingItem.size)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

@@ -40,12 +40,12 @@ export const getItemById = async (req, res) => {
 // @access  Private/Admin
 export const createItem = async (req, res) => {
   try {
-    const { name, type, price, cost, image_url } = req.body;
+    const { name, type, size, price, cost, image_url } = req.body;
 
     // Validation
-    if (!name || !type || !price || !cost) {
+    if (!name || !type || !size || !price || !cost) {
       return res.status(400).json({ 
-        message: "Vui lòng điền đầy đủ thông tin: tên, loại, giá bán và giá vốn sản phẩm" 
+        message: "Vui lòng điền đầy đủ thông tin: tên, loại, kích cỡ, giá bán và giá vốn sản phẩm" 
       });
     }
 
@@ -71,21 +71,11 @@ export const createItem = async (req, res) => {
       });
     }
 
-    // Kiểm tra tên sản phẩm đã tồn tại
-    const existingItem = await Item.findOne({ 
-      name: { $regex: new RegExp(name, "i") } 
-    });
-    
-    if (existingItem) {
-      return res.status(400).json({ 
-        message: "Tên sản phẩm đã tồn tại" 
-      });
-    }
-
     // Tạo item mới
     const item = new Item({
       name: name.trim(),
       type,
+      size,
       price: Number(price),
       cost: Number(cost),
       image_url: image_url ? image_url.trim() : "",
@@ -104,12 +94,12 @@ export const createItem = async (req, res) => {
 // @access  Private/Admin
 export const updateItem = async (req, res) => {
   try {
-    const { name, type, price, cost, image_url } = req.body;
+    const { name, type, size, price, cost, image_url } = req.body;
 
     // Validation
-    if (!name || !type || !price || cost === undefined) {
+    if (!name || !type || !size || !price || cost === undefined) {
       return res.status(400).json({ 
-        message: "Vui lòng điền đầy đủ thông tin: tên, loại, giá bán và giá vốn sản phẩm" 
+        message: "Vui lòng điền đầy đủ thông tin: tên, loại, kích cỡ, giá bán và giá vốn sản phẩm" 
       });
     }
 
@@ -141,21 +131,10 @@ export const updateItem = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
     }
 
-    // Kiểm tra tên sản phẩm đã tồn tại (trừ item hiện tại)
-    const existingItem = await Item.findOne({
-      _id: { $ne: req.params.id },
-      name: { $regex: new RegExp(name, "i") }
-    });
-    
-    if (existingItem) {
-      return res.status(400).json({ 
-        message: "Tên sản phẩm đã tồn tại" 
-      });
-    }
-
     // Cập nhật item
     item.name = name.trim();
     item.type = type;
+    item.size = size;
     item.price = Number(price);
     item.cost = Number(cost);
     if (image_url !== undefined) {

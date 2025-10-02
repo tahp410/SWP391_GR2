@@ -24,6 +24,14 @@ import mongoose from "mongoose";
               type: Number,
               required: true,
             },
+            size: {
+              type: String,
+              enum: ["small", "medium", "large", "extra_large"],
+            },
+            type: {
+              type: String,
+              enum: ["food", "drink"],
+            },
           },
         ],
         image: {

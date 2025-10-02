@@ -49,13 +49,29 @@ export const getComboById = async (req, res) => {
 // @access  Private/Admin
 export const createCombo = async (req, res) => {
   try {
-    const { name, description, items, image, price } = req.body;
+    const { name, description, items, image_url, price } = req.body;
+    console.log('Creating combo with data:', { name, description, items, image_url, price });
+
+    // Validate required fields
+    if (!name || !description || !price || !items || items.length === 0) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Filter out empty items and validate
+    const validItems = items.filter(item => item.name && item.quantity);
+    if (validItems.length === 0) {
+      return res.status(400).json({ message: 'No valid items provided' });
+    }
 
     // Validate that all items exist
-    const itemNames = items.map(item => item.name);
+    const itemNames = validItems.map(item => item.name);
     const existingItems = await Item.find({ name: { $in: itemNames } });
     
     if (existingItems.length !== itemNames.length) {
+      console.log('Item validation failed:', { 
+        providedItems: itemNames, 
+        foundItems: existingItems.map(item => item.name) 
+      });
       return res.status(400).json({ message: 'Some items do not exist' });
     }
 
@@ -63,14 +79,16 @@ export const createCombo = async (req, res) => {
       name,
       description,
       price,
-      items,
-      image,
+      items: validItems,
+      image: image_url,
       category: 'combo'
     });
 
     const createdCombo = await combo.save();
+    console.log('Created combo:', createdCombo);
     res.status(201).json(createdCombo);
   } catch (error) {
+    console.error('Error creating combo:', error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -80,7 +98,7 @@ export const createCombo = async (req, res) => {
 // @access  Private/Admin
 export const updateCombo = async (req, res) => {
   try {
-    const { name, description, price, items, image, isActive } = req.body;
+    const { name, description, price, items, image_url, isActive } = req.body;
 
     const combo = await Combo.findById(req.params.id);
     if (!combo) {
@@ -101,7 +119,7 @@ export const updateCombo = async (req, res) => {
     combo.description = description || combo.description;
     combo.price = price !== undefined ? price : combo.price;
     combo.items = items || combo.items;
-    combo.image = image !== undefined ? image : combo.image;
+    combo.image = image_url !== undefined ? image_url : combo.image;
     combo.isActive = isActive !== undefined ? isActive : combo.isActive;
 
     const updatedCombo = await combo.save();

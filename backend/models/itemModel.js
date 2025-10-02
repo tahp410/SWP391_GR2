@@ -12,6 +12,11 @@ const itemSchema = new mongoose.Schema({
     required: true,
     enum: ["popcorn", "drink", "snack"],
   },
+  size: {
+    type: String,
+    required: true,
+    enum: ["small", "medium", "large", "extra_large"],
+  },
   price: {
     type: Number,
     required: true,

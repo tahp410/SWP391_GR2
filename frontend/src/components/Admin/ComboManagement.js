@@ -2,6 +2,22 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, Edit2, Trash2, Eye, X, Package, Upload, Link } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 
+// FormField component moved outside to prevent recreation
+const FormField = ({ label, type = "text", required, className, ...props }) => {
+  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {type === 'textarea' ? 
+        <textarea className={className || inputClass} rows="3" {...props} /> :
+        <input type={type} className={className || inputClass} {...props} />
+      }
+    </div>
+  );
+};
+
 const ComboManagement = () => {
   const [state, setState] = useState({
     combos: [], availableItems: [], searchTerm: '', loading: true,
@@ -59,7 +75,7 @@ const ComboManagement = () => {
     try {
       const [combosRes, itemsRes] = await Promise.all([
         fetch(`${API_BASE}/combos/admin/all`),
-        fetch(`${API_BASE}/combos/admin/available-items`)
+        fetch(`${API_BASE}/items`)
       ]);
       const [combos, availableItems] = await Promise.all([combosRes.json(), itemsRes.json()]);
       setState(prev => ({ ...prev, combos, availableItems, loading: false }));
@@ -101,15 +117,23 @@ const ComboManagement = () => {
     }
 
     const submitData = {
-      ...state.formData,
-      image_url: finalImageUrl
+      name,
+      description,
+      price: parseFloat(price),
+      image: finalImageUrl,
+      image_url: finalImageUrl, // Để đảm bảo tương thích với backend
+      items
     };
 
     try {
+      const token = localStorage.getItem('token');
       const url = state.editingCombo ? `${API_BASE}/combos/${state.editingCombo._id}` : `${API_BASE}/combos`;
       const response = await fetch(url, {
         method: state.editingCombo ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(submitData),
       });
 
@@ -185,20 +209,6 @@ const ComboManagement = () => {
   const filteredCombos = state.combos.filter(combo => 
     combo.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
     combo.description.toLowerCase().includes(state.searchTerm.toLowerCase())
-  );
-
-  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  
-  const FormField = ({ label, type = "text", required, ...props }) => (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      {type === 'textarea' ? 
-        <textarea className={inputClass} rows="3" {...props} /> :
-        <input type={type} className={inputClass} {...props} />
-      }
-    </div>
   );
 
   if (state.loading) {
@@ -420,11 +430,16 @@ const ComboManagement = () => {
                           required
                         >
                           <option value="">Chọn sản phẩm</option>
-                          {state.availableItems.map((availableItem) => (
-                            <option key={availableItem._id} value={availableItem.name}>
-                              {availableItem.name} ({availableItem.type}) - {availableItem.price.toLocaleString()}đ
-                            </option>
-                          ))}
+                          {state.availableItems.map((availableItem) => {
+                            const sizeMap = { small: 'S', medium: 'M', large: 'L', extra_large: 'XL' };
+                            const sizeText = availableItem.size ? ` (${sizeMap[availableItem.size] || availableItem.size})` : '';
+                            const displayText = `${availableItem.name}${sizeText} - ${availableItem.type} - ${availableItem.price.toLocaleString()}đ`;
+                            return (
+                              <option key={availableItem._id} value={availableItem.name}>
+                                {displayText}
+                              </option>
+                            );
+                          })}
                         </select>
                         
                         <input
@@ -484,9 +499,9 @@ const ComboManagement = () => {
                 </div>
 
                 <div className="space-y-4">
-                  {state.editingCombo.image && (
+                  {(state.editingCombo.image || state.editingCombo.image_url) && (
                     <img
-                      src={state.editingCombo.image}
+                      src={state.editingCombo.image || state.editingCombo.image_url}
                       alt={state.editingCombo.name}
                       className="w-full h-48 object-cover rounded-lg"
                       onError={(e) => { e.target.style.display = 'none'; }}
@@ -558,9 +573,9 @@ const ComboManagement = () => {
             >
               {/* Image */}
               <div className="w-full h-40 bg-gray-100 flex items-center justify-center">
-                {combo.image ? (
+                {(combo.image || combo.image_url) ? (
                   <img
-                    src={combo.image}
+                    src={combo.image || combo.image_url}
                     alt={combo.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
