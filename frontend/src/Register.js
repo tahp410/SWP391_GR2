@@ -17,7 +17,7 @@ const initialForm = {
 // Hàm kiểm tra độ mạnh mật khẩu giống changePassword.js
 const checkPasswordStrength = (password) => {
   const checks = {
-    length: password.length >= 6,
+    length: password.length >= 8,
     uppercase: /[A-Z]/.test(password),
     lowercase: /[a-z]/.test(password),
     number: /\d/.test(password),
@@ -64,6 +64,14 @@ export default function Register() {
   const [form, setForm] = useState(initialForm);
   const [showPw, setShowPw] = useState({ password: false, confirm: false });
   const [errors, setErrors] = useState({});
+  
+  // Email verification states
+  const [verificationStep, setVerificationStep] = useState('register'); // 'register' | 'verify' | 'completed'
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [canResend, setCanResend] = useState(true);
+  
   const navigate = useNavigate();
 
   const strengthObj = checkPasswordStrength(form.password);
@@ -100,31 +108,180 @@ export default function Register() {
     });
   };
 
+  // Countdown timer effect
+  React.useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    } else if (countdown === 0 && !canResend) {
+      setCanResend(true);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown, canResend]);
+
+  // Send verification code
+  const sendVerificationCode = async (email) => {
+    try {
+      setIsVerifying(true);
+      setErrors({}); // Clear any previous errors
+      
+      const response = await fetch(`${import.meta.env?.VITE_API_URL || 'http://localhost:5000'}/api/auth/send-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setCountdown(300); // 5 minutes
+        setCanResend(false);
+        
+        if (data.emailSent) {
+          alert(`📧 Email xác minh đã được gửi thành công!\n\n📮 Vui lòng kiểm tra hộp thư của: ${email}\n\n⏰ Mã có hiệu lực trong 5 phút\n💡 Lưu ý: Hãy kiểm tra cả thư mục Spam/Junk nếu không thấy email`);
+        } else {
+          alert(`📧 Mã xác minh: ${data.code}\n\n⚠️ Demo mode: Hệ thống gửi email gặp sự cố.\nTrong thực tế, mã này sẽ được gửi đến email ${email}`);
+        }
+        return true;
+      } else {
+        throw new Error(data.message || 'Không thể gửi mã xác minh');
+      }
+    } catch (error) {
+      if (error.message.includes('Email already registered')) {
+        setErrors({ email: 'Email này đã được đăng ký' });
+        const emailInput = document.getElementById('email');
+        if (emailInput) {
+          emailInput.focus();
+          emailInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else {
+        alert(`Lỗi: ${error.message}`);
+      }
+      return false;
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // Verify code
+  const verifyEmailCode = async (email, code) => {
+    if (!code || code.length !== 6) {
+      alert('Vui lòng nhập đủ 6 số của mã xác minh');
+      return false;
+    }
+
+    try {
+      setIsVerifying(true);
+      const response = await fetch(`${import.meta.env?.VITE_API_URL || 'http://localhost:5000'}/api/auth/verify-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        alert('✅ Email đã được xác minh thành công!');
+        return true;
+      } else {
+        if (data.message.includes('expired')) {
+          alert('❌ Mã xác minh đã hết hạn. Vui lòng yêu cầu mã mới.');
+          setCanResend(true);
+          setCountdown(0);
+        } else if (data.message.includes('Too many failed attempts')) {
+          alert('❌ Bạn đã nhập sai quá nhiều lần. Vui lòng yêu cầu mã mới.');
+          setCanResend(true);
+          setCountdown(0);
+        } else {
+          alert(`❌ ${data.message}`);
+        }
+        return false;
+      }
+    } catch (error) {
+      alert(`❌ Lỗi kết nối: ${error.message}`);
+      return false;
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   // Gọn validate
   const validate = () => {
     const e = {};
-    if (!form.fullName.trim()) e.fullName = "Vui lòng nhập họ và tên";
-    if (!form.email.trim()) e.email = "Vui lòng nhập email";
-    else if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = "Email không hợp lệ";
-    if (!form.phone.trim()) e.phone = "Vui lòng nhập số điện thoại";
-    else if (!/^[0-9]{10}$/.test(form.phone)) e.phone = "Số điện thoại không hợp lệ";
-    if (!form.password) e.password = "Vui lòng nhập mật khẩu";
-    else if (form.password.length < 6) e.password = "Mật khẩu phải từ 6 ký tự trở lên";
-    if (!form.confirmPassword) e.confirmPassword = "Vui lòng xác nhận mật khẩu";
-    else if (form.password !== form.confirmPassword) e.confirmPassword = "Mật khẩu xác nhận không khớp";
-    if (!form.district) e.district = "Chọn quận/huyện";
-    if (!form.city) e.city = "Chọn thành phố";
-    if (!form.gender) e.gender = "Chọn giới tính";
-    if (!form.dateOfBirth) e.dateOfBirth = "Chọn ngày sinh";
-    if (!form.agreeTerms) e.agreeTerms = "Bạn cần đồng ý điều khoản";
+    let firstErrorField = null;
+
+    if (!form.fullName.trim()) {
+      e.fullName = "Vui lòng nhập họ và tên";
+      if (!firstErrorField) firstErrorField = "fullName";
+    }
+    if (!form.email.trim()) {
+      e.email = "Vui lòng nhập email";
+      if (!firstErrorField) firstErrorField = "email";
+    } else if (!/^\S+@\S+\.\S+$/.test(form.email)) {
+      e.email = "Email không hợp lệ";
+      if (!firstErrorField) firstErrorField = "email";
+    }
+    if (!form.phone.trim()) {
+      e.phone = "Vui lòng nhập số điện thoại";
+      if (!firstErrorField) firstErrorField = "phone";
+    } else if (!/^[0-9]{10}$/.test(form.phone)) {
+      e.phone = "Số điện thoại không hợp lệ";
+      if (!firstErrorField) firstErrorField = "phone";
+    }
+    
+    // Validation mật khẩu mạnh hơn như changePassword.js
+    if (!form.password) {
+      e.password = "Vui lòng nhập mật khẩu";
+      if (!firstErrorField) firstErrorField = "password";
+    } else if (form.password.length < 8) {
+      e.password = "Mật khẩu phải có ít nhất 8 ký tự";
+      if (!firstErrorField) firstErrorField = "password";
+    } else {
+      const strength = checkPasswordStrength(form.password);
+      if (strength.score < 4) {
+        const missing = [];
+        if (!strength.checks.length) missing.push("ít nhất 8 ký tự");
+        if (!strength.checks.uppercase) missing.push("chữ hoa");
+        if (!strength.checks.lowercase) missing.push("chữ thường");
+        if (!strength.checks.number) missing.push("số");
+        if (!strength.checks.special) missing.push("ký tự đặc biệt");
+        e.password = `Mật khẩu cần có: ${missing.join(", ")}`;
+        if (!firstErrorField) firstErrorField = "password";
+      }
+    }
+    
+    if (!form.confirmPassword) {
+      e.confirmPassword = "Vui lòng xác nhận mật khẩu";
+      if (!firstErrorField) firstErrorField = "confirmPassword";
+    } else if (form.password !== form.confirmPassword) {
+      e.confirmPassword = "Mật khẩu xác nhận không khớp";
+      if (!firstErrorField) firstErrorField = "confirmPassword";
+    }
+    if (!form.city) {
+      e.city = "Chọn thành phố";
+      if (!firstErrorField) firstErrorField = "city";
+    }
+    if (!form.district) {
+      e.district = "Chọn quận/huyện";
+      if (!firstErrorField) firstErrorField = "district";
+    }
+    if (!form.gender) {
+      e.gender = "Chọn giới tính";
+      if (!firstErrorField) firstErrorField = "gender";
+    }
+    if (!form.dateOfBirth) {
+      e.dateOfBirth = "Chọn ngày sinh";
+      if (!firstErrorField) firstErrorField = "dateOfBirth";
+    }
+    if (!form.agreeTerms) {
+      e.agreeTerms = "Bạn cần đồng ý điều khoản";
+      if (!firstErrorField) firstErrorField = "agreeTerms";
+    }
+    
     setErrors(e);
-    return Object.keys(e).length === 0;
+    return { isValid: Object.keys(e).length === 0, firstErrorField, errors: e };
   };
 
-  // Gọn onSubmit
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    if (!validate()) return;
+  // Proceed with actual registration after email verification
+  const proceedWithRegistration = async () => {
     try {
       const dateForApi = parseDMYtoISO(form.dateOfBirth);
       const requestData = {
@@ -150,13 +307,42 @@ export default function Register() {
         try { data = JSON.parse(responseText); } catch { throw new Error("Server trả về dữ liệu không hợp lệ"); }
       }
       if (response.ok) {
-        alert("Đăng ký thành công!");
-        // navigate("/login");
+        alert("🎉 Đăng ký thành công! Email đã được xác minh.\n\nChào mừng bạn đến với CineTicket!");
+        navigate("/");
       } else {
         throw new Error(data?.message || "Đăng ký thất bại. Vui lòng thử lại.");
       }
     } catch (error) {
       alert(error.message || "Có lỗi xảy ra khi đăng ký");
+    }
+  };
+
+  // Gọn onSubmit - Now sends verification code first
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    const validation = validate();
+    
+    if (!validation.isValid) {
+      // Focus vào trường đầu tiên có lỗi
+      if (validation.firstErrorField) {
+        const element = document.getElementById(validation.firstErrorField);
+        if (element) {
+          element.focus();
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      
+      // Hiển thị thông báo tổng quan
+      const errorCount = Object.keys(validation.errors).length;
+      alert(`Vui lòng kiểm tra và điền đầy đủ thông tin! Còn ${errorCount} trường cần hoàn thiện.`);
+      return;
+    }
+    
+    // Send verification code and switch to verification step
+    const success = await sendVerificationCode(form.email);
+    if (success) {
+      setVerificationStep('verify');
+      setVerificationCode('');
     }
   };
 
@@ -179,9 +365,98 @@ export default function Register() {
         <div className="w-full max-w-lg bg-gradient-to-b from-white/5 to-black/35 border border-yellow-400/20 rounded-2xl shadow-2xl p-6" 
              style={{backgroundColor: '#1b0f0f'}} role="dialog" aria-labelledby="regTitle">
           <div className="flex items-center justify-between mb-4">
-            <h2 id="regTitle" className="text-xl font-bold text-yellow-200 m-0">Đăng ký tài khoản</h2>
+            <h2 id="regTitle" className="text-xl font-bold text-yellow-200 m-0">
+              {verificationStep === 'verify' ? 'Xác minh email' : 'Đăng ký tài khoản'}
+            </h2>
             <button type="button" className="w-9 h-9 border-none rounded-lg bg-white/10 text-white cursor-pointer hover:bg-white/20" onClick={closeRegister} aria-label="Đóng">×</button>
           </div>
+
+          {/* Verification Step */}
+          {verificationStep === 'verify' && (
+            <div className="text-center space-y-4">
+              <div className="text-gray-300 mb-4">
+                Chúng tôi đã gửi mã xác minh đến email <strong className="text-yellow-400">{form.email}</strong>
+                <br />
+                <small className="text-gray-400">Vui lòng kiểm tra cả hộp thư spam</small>
+              </div>
+              
+              <div className="mb-4">
+                <label htmlFor="verificationCode" className="block text-yellow-200 text-sm mb-2">Mã xác minh (6 số) *</label>
+                <input 
+                  type="text" 
+                  id="verificationCode" 
+                  name="verificationCode" 
+                  placeholder="000000" 
+                  value={verificationCode} 
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setVerificationCode(value);
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && verificationCode.length === 6) {
+                      document.querySelector('[data-verify-btn]').click();
+                    }
+                  }}
+                  maxLength="6"
+                  className="w-full px-3 py-2.5 rounded-lg bg-gray-800 border border-white/10 text-gray-100 focus:outline-none focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20 transition-all text-center text-xl tracking-widest"
+                  autoComplete="off"
+                  autoFocus
+                />
+                <div className="text-xs text-gray-400 mt-1">
+                  Mã có hiệu lực trong {Math.floor(countdown / 60)} phút {countdown % 60} giây
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  type="button"
+                  data-verify-btn
+                  onClick={async () => {
+                    if (verificationCode.length === 6) {
+                      const success = await verifyEmailCode(form.email, verificationCode);
+                      if (success) {
+                        setVerificationStep('register');
+                        // Proceed with actual registration
+                        await proceedWithRegistration();
+                      }
+                    } else {
+                      alert('Vui lòng nhập đủ 6 số');
+                      document.getElementById('verificationCode').focus();
+                    }
+                  }}
+                  disabled={isVerifying || verificationCode.length !== 6}
+                  className="flex-1 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors duration-200"
+                >
+                  {isVerifying ? 'Đang xác minh...' : 'Xác minh'}
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={() => sendVerificationCode(form.email)}
+                  disabled={!canResend || isVerifying}
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors duration-200"
+                >
+                  {countdown > 0 ? `Gửi lại (${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, '0')})` : 'Gửi lại mã'}
+                </button>
+              </div>
+
+              <button 
+                type="button"
+                onClick={() => {
+                  setVerificationStep('register');
+                  setVerificationCode('');
+                  setCountdown(0);
+                  setCanResend(true);
+                }}
+                className="text-yellow-400 hover:text-yellow-300 underline"
+              >
+                ← Quay lại chỉnh sửa thông tin đăng ký
+              </button>
+            </div>
+          )}
+
+          {/* Register Form */}
+          {verificationStep === 'register' && (
           <form className="grid gap-4" id="registerForm" onSubmit={onSubmit} noValidate>
             <div className="mb-4">
               <label htmlFor="fullName" className="block text-yellow-200 text-sm mb-2">Họ và tên *</label>
@@ -237,10 +512,33 @@ export default function Register() {
                 <span className="text-xs text-gray-400 mt-1 block">
                   Độ mạnh mật khẩu: {strength.label}
                 </span>
+                {form.password && (
+                  <div className="mt-2 text-xs space-y-1">
+                    <div className={`flex items-center ${strengthObj.checks.length ? 'text-green-400' : 'text-red-400'}`}>
+                      <span className="mr-1">{strengthObj.checks.length ? '✓' : '✗'}</span>
+                      Ít nhất 8 ký tự
+                    </div>
+                    <div className={`flex items-center ${strengthObj.checks.uppercase ? 'text-green-400' : 'text-red-400'}`}>
+                      <span className="mr-1">{strengthObj.checks.uppercase ? '✓' : '✗'}</span>
+                      Chứa chữ hoa (A-Z)
+                    </div>
+                    <div className={`flex items-center ${strengthObj.checks.lowercase ? 'text-green-400' : 'text-red-400'}`}>
+                      <span className="mr-1">{strengthObj.checks.lowercase ? '✓' : '✗'}</span>
+                      Chứa chữ thường (a-z)
+                    </div>
+                    <div className={`flex items-center ${strengthObj.checks.number ? 'text-green-400' : 'text-red-400'}`}>
+                      <span className="mr-1">{strengthObj.checks.number ? '✓' : '✗'}</span>
+                      Chứa số (0-9)
+                    </div>
+                    <div className={`flex items-center ${strengthObj.checks.special ? 'text-green-400' : 'text-red-400'}`}>
+                      <span className="mr-1">{strengthObj.checks.special ? '✓' : '✗'}</span>
+                      Chứa ký tự đặc biệt (!@#$%^&*...)
+                    </div>
+                  </div>
+                )}
               </div>
               {errors.password && <div className="text-red-400 text-xs mt-1">{errors.password}</div>}
             </div>
-                <button type="button" className="toggle-password" onClick={() => setShowPw((s) => ({ ...s, password: !s.password }))} aria-label={showPw.password ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>👁</button>
             <div className="mb-4">
               <label htmlFor="confirmPassword" className="block text-yellow-200 text-sm mb-2">Xác nhận mật khẩu *</label>
               <div className="relative">
@@ -291,11 +589,12 @@ export default function Register() {
             <div className="mb-4">
               <label className="block text-yellow-200 text-sm mb-2">Giới tính *</label>
               <div className="flex gap-8">
-                {['male','female','other'].map((g) => (
+                {['male','female','other'].map((g, index) => (
                   <label key={g} className="flex items-center cursor-pointer">
                     <input 
                       type="radio" name="gender" value={g} checked={form.gender === g} onChange={onChange} required 
                       className="sr-only" 
+                      id={index === 0 ? "gender" : undefined}
                     />
                     <span className={`w-4 h-4 rounded-full border-2 mr-2 ${form.gender === g ? 'border-yellow-400' : 'border-gray-500'} relative`}>
                       {form.gender === g && <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-yellow-400" />}
@@ -335,43 +634,11 @@ export default function Register() {
             >
               Đăng ký
             </button>
-            <div className="text-center relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/20"></div>
-              </div>
-              <div className="relative bg-transparent px-4">
-                <span className="text-gray-400 text-sm">Hoặc đăng ký với</span>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <button 
-                type="button"
-                onClick={() => alert("Google OAuth (demo)")} 
-                className="flex items-center justify-center px-4 py-3 bg-white/10 hover:bg-white/20 border border-gray-600 hover:border-gray-500 rounded-xl transition-all duration-300"
-              >
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span className="text-white text-sm font-medium">Google</span>
-              </button>
-              <button 
-                type="button"
-                onClick={() => alert("Facebook OAuth (demo)")} 
-                className="flex items-center justify-center px-4 py-3 bg-white/10 hover:bg-white/20 border border-gray-600 hover:border-gray-500 rounded-xl transition-all duration-300"
-              >
-                <svg className="w-5 h-5 mr-2 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-                <span className="text-white text-sm font-medium">Facebook</span>
-              </button>
-            </div>
             <div className="text-center mt-4 text-gray-400">
               Đã có tài khoản? <button type="button" className="text-yellow-400 hover:text-yellow-300 underline bg-none border-none cursor-pointer p-0 font-inherit" onClick={goToLogin}>Đăng nhập ngay</button>
             </div>
           </form>
+          )}
         </div>
       </div>
     </div>

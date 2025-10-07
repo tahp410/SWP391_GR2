@@ -419,32 +419,26 @@ const ItemManagement = () => {
 
         {/* Add/Edit Modal */}
         {state.showForm && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h2 className="modal-title">
-                  {state.editingItem ? "Chỉnh Sửa Sản Phẩm" : "Thêm Sản Phẩm Mới"}
-                </h2>
-                <button onClick={resetForm} className="modal-close">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="modal-body">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">
+                    {state.editingItem ? "Chỉnh Sửa Sản Phẩm" : "Thêm Sản Phẩm Mới"}
+                  </h2>
+                  <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
+                    <X size={24} />
+                  </button>
+                </div>
 
-                <form onSubmit={handleSubmit}>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tên sản phẩm <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={state.formData.name}
-                      onChange={(e) => updateFormField('name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Nhập tên sản phẩm"
-                      required
-                    />
-                  </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <FormField
+                    label="Tên sản phẩm"
+                    required
+                    value={state.formData.name}
+                    onChange={(e) => updateFormField('name', e.target.value)}
+                    placeholder="Nhập tên sản phẩm"
+                  />
                   
                   <FormField
                     label="Loại sản phẩm"
@@ -473,46 +467,34 @@ const ItemManagement = () => {
                     <option value="extra_large">Cực lớn (XL)</option>
                   </FormField>
                   
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Giá bán (VNĐ) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      pattern="[0-9]*"
-                      inputMode="numeric"
-                      placeholder="Nhập giá bán"
-                      value={state.formData.price}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9]/g, '');
-                        updateFormField('price', value);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
+                  <FormField
+                    label="Giá bán (VNĐ)"
+                    type="text"
+                    pattern="[0-9]*"
+                    required
+                    placeholder="Nhập giá bán"
+                    value={state.formData.price}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '');
+                      updateFormField('price', value);
+                    }}
+                  />
                   
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Giá vốn (VNĐ) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      pattern="[0-9]*"
-                      inputMode="numeric"
-                      placeholder="Nhập giá vốn"
-                      value={state.formData.cost}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9]/g, '');
-                        updateFormField('cost', value);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
+                  <FormField
+                    label="Giá vốn (VNĐ)"
+                    type="text"
+                    pattern="[0-9]*"
+                    required
+                    placeholder="Nhập giá vốn"
+                    value={state.formData.cost}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '');
+                      updateFormField('cost', value);
+                    }}
+                  />
 
                   {/* Image Upload Section */}
-                  <div className="mb-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Ảnh sản phẩm <span className="text-red-500">*</span>
                     </label>
@@ -593,16 +575,20 @@ const ItemManagement = () => {
                     {state.imagePreview && (
                       <div className="mt-3">
                         <p className="text-sm text-gray-600 mb-2">Xem trước:</p>
-                        <div className="w-full max-w-xs">
-                          <img
-                            src={state.imagePreview}
-                            alt="Preview"
-                            className="w-full h-32 object-cover rounded-lg border shadow-sm"
-                            onError={() => setState(prev => ({ ...prev, imagePreview: "" }))}
-                          />
-                        </div>
+                        <img
+                          src={state.imagePreview}
+                          alt="Preview"
+                          className="w-32 h-32 object-cover rounded-lg border"
+                          onError={() => setState(prev => ({ ...prev, imagePreview: "" }))}
+                        />
                       </div>
                     )}
+
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-700">
+                        <strong>Lưu ý:</strong> Ảnh là bắt buộc cho mọi sản phẩm. Vui lòng cung cấp ảnh chất lượng cao.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex gap-3 pt-4">
@@ -629,18 +615,18 @@ const ItemManagement = () => {
 
         {/* Detail Modal */}
         {state.showDetailModal && state.editingItem && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h2 className="modal-title">Chi Tiết Sản Phẩm</h2>
-                <button
-                  onClick={() => setState(prev => ({ ...prev, showDetailModal: false }))}
-                  className="modal-close"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="modal-body">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Chi Tiết Sản Phẩm</h2>
+                  <button
+                    onClick={() => setState(prev => ({ ...prev, showDetailModal: false }))}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
 
                 <div className="space-y-4">
                   {state.editingItem.image_url && (
