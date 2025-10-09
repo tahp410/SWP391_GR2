@@ -96,6 +96,7 @@ const UserManagementContent = () => {
   const [deleting, setDeleting] = useState(null); // User đang được xóa
   const [creating, setCreating] = useState(null); // Dữ liệu user mới đang tạo
   const [createErrors, setCreateErrors] = useState({}); // Lỗi validation khi tạo user
+  const [editErrors, setEditErrors] = useState({}); // Lỗi validation khi edit user
 
   // 6. DATA FETCHING - Lấy dữ liệu users từ backend API
   const fetchUsers = async () => {
@@ -225,7 +226,7 @@ const UserManagementContent = () => {
     }
     try {
       const genderApi = (creating.gender || 'Nam') === 'Nữ' ? 'female' : (creating.gender || 'Nam') === 'Nam' ? 'male' : 'other';
-      const res = await axios.post('http://localhost:5000/api/users/register', {
+      await axios.post('http://localhost:5000/api/users/register', {
         name: creating.name,
         email: creating.email,
         password: creating.password || 'Password@123',
@@ -263,47 +264,76 @@ const UserManagementContent = () => {
   const commitEdit = async () => {
     if (!editing) return;
     
-    // Kiểm tra tên và email bắt buộc
-    if (!editing.name || !editing.email) {
-      alert('Vui lòng nhập tên và email');
-      return;
+    // Reset errors trước khi validate
+    setEditErrors({});
+    
+    // VALIDATION: Kiểm tra các trường bắt buộc
+    const newErrors = {};
+    
+    // Kiểm tra tên bắt buộc
+    if (!editing.name || !editing.name.trim()) {
+      newErrors.name = 'Vui lòng nhập tên';
     }
     
-    // Kiểm tra email có đuôi được phép
-    const allowedDomains = ['@gmail.com', '@example.com', '@cineticket.com'];
-    const emailLower = editing.email.toLowerCase();
-    const hasValidDomain = allowedDomains.some(domain => emailLower.endsWith(domain));
-    if (!hasValidDomain) {
-      alert('Email phải có đuôi @gmail.com, @example.com hoặc @cineticket.com');
-      return;
+    // Kiểm tra email bắt buộc và format
+    if (!editing.email || !editing.email.trim()) {
+      newErrors.email = 'Vui lòng nhập email';
+    } else {
+      // Kiểm tra email có đuôi được phép
+      const allowedDomains = ['@gmail.com', '@example.com', '@cineticket.com'];
+      const emailLower = editing.email.toLowerCase();
+      const hasValidDomain = allowedDomains.some(domain => emailLower.endsWith(domain));
+      if (!hasValidDomain) {
+        newErrors.email = 'Email phải có đuôi @gmail.com, @example.com hoặc @cineticket.com';
+      } else {
+        // Kiểm tra email trùng lặp (trừ user hiện tại)
+        const emailExists = users.some(u => 
+          u.id !== editing.id && 
+          (u.email || '').toLowerCase() === editing.email.toLowerCase()
+        );
+        if (emailExists) {
+          newErrors.email = 'Email đã tồn tại';
+        }
+      }
     }
     
-    // Kiểm tra mật khẩu nếu có thay đổi (phải có ít nhất 6 ký tự)
-    if (editing.password && editing.password.length < 6) {
-      alert('Mật khẩu phải có ít nhất 6 ký tự');
-      return;
+    // Kiểm tra số điện thoại (bắt buộc)
+    if (!editing.phone || !editing.phone.trim()) {
+      newErrors.phone = 'Vui lòng nhập số điện thoại';
+    } else if (!/^\d{10}$/.test(editing.phone.trim())) {
+      newErrors.phone = 'Số điện thoại phải gồm đúng 10 chữ số';
     }
     
-    // Kiểm tra email trùng lặp (trừ user hiện tại)
-    const emailExists = users.some(u => 
-      u.id !== editing.id && 
-      (u.email || '').toLowerCase() === editing.email.toLowerCase()
-    );
-    if (emailExists) {
-      alert('Email đã tồn tại');
-      return;
+    // Kiểm tra role (bắt buộc)
+    if (!editing.role) {
+      newErrors.role = 'Vui lòng chọn vai trò';
     }
     
-    // Kiểm tra số điện thoại phải đúng 10 chữ số
-    if (editing.phone && !/^\d{10}$/.test(editing.phone.trim())) {
-      alert('Số điện thoại phải gồm đúng 10 chữ số');
+    // Kiểm tra gender (bắt buộc)
+    if (!editing.gender) {
+      newErrors.gender = 'Vui lòng chọn giới tính';
+    }
+    
+    // Kiểm tra province (bắt buộc)
+    if (!editing.province || !editing.province.trim()) {
+      newErrors.province = 'Vui lòng nhập tỉnh/thành phố';
+    }
+    
+    // Kiểm tra city (bắt buộc)
+    if (!editing.city || !editing.city.trim()) {
+      newErrors.city = 'Vui lòng nhập quận/huyện';
+    }
+    
+    // Nếu có lỗi, hiển thị và dừng
+    if (Object.keys(newErrors).length > 0) {
+      setEditErrors(newErrors);
       return;
     }
     
     try {
       // Gọi API cập nhật DB
       const token = localStorage.getItem('token');
-      // Tạo object dữ liệu cập nhật
+      // Tạo object dữ liệu cập nhật (không bao gồm password)
       const updateData = {
         name: editing.name,
         email: editing.email,
@@ -314,11 +344,6 @@ const UserManagementContent = () => {
         city: editing.city || 'N/A'
       };
       
-      // Chỉ thêm password nếu có thay đổi
-      if (editing.password && editing.password.trim()) {
-        updateData.password = editing.password;
-      }
-      
       const response = await axios.put(`http://localhost:5000/api/users/${editing.id}`, updateData, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
@@ -327,14 +352,9 @@ const UserManagementContent = () => {
       // Refresh danh sách users từ database
       await fetchUsers();
       
-      // Hiển thị thông báo thành công với thông tin cụ thể
+      // Hiển thị thông báo thành công
       const message = response.data?.message || '✅ Cập nhật người dùng thành công!';
-      const hasPasswordUpdate = editing.password && editing.password.trim();
-      if (hasPasswordUpdate) {
-        alert(message + '\n\n💡 Mật khẩu đã được thay đổi. Người dùng có thể đăng nhập với mật khẩu mới.');
-      } else {
-        alert(message);
-      }
+      alert(message);
     } catch (e) {
       console.error(e);
       alert('Cập nhật thất bại: ' + (e.response?.data?.message || e.message));
@@ -471,7 +491,7 @@ const UserManagementContent = () => {
                   <TableCell>
                     <div className="flex gap-4 text-sm">
                       <button className="text-black hover:underline" onClick={() => setViewing(u)}>Xem</button>
-                      <button className="text-black hover:underline" onClick={() => setEditing({ ...u })}>Sửa</button>
+                      <button className="text-black hover:underline" onClick={() => { setEditing({ ...u }); setEditErrors({}); }}>Sửa</button>
                       <button className="text-black hover:underline" onClick={() => setDeleting(u)}>Xóa</button>
                     </div>
                   </TableCell>
@@ -499,55 +519,124 @@ const UserManagementContent = () => {
       </Modal>
 
       {/* Edit Modal */}
-      <Modal open={!!editing} title="Chỉnh sửa người dùng" onClose={() => setEditing(null)}>
+      <Modal open={!!editing} title="Chỉnh sửa người dùng" onClose={() => { setEditing(null); setEditErrors({}); }}>
         {editing && (
           <div className="space-y-3">
-            <input value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Tên" />
-            <input value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Email (@gmail.com, @example.com, @cineticket.com)" />
-            <input 
-              type="password"
-              value={editing.password || ''} 
-              onChange={e => setEditing({ ...editing, password: e.target.value })} 
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Mật khẩu mới (để trống nếu không đổi, tối thiểu 6 ký tự)"
-              autoComplete="new-password"
-              style={{ backgroundColor: '#ffffff', color: '#000000', WebkitBoxShadow: '0 0 0px 1000px #ffffff inset', borderColor: '#d1d5db' }}
-            />
-            <input value={editing.phone} onChange={e => setEditing({ ...editing, phone: e.target.value })} className="w-full border rounded px-3 py-2 text-black bg-white" placeholder="Số điện thoại" />
-            <select 
-              value={editing.province || ''} 
-              onChange={e => {
-                const newProvince = e.target.value;
-                setEditing({ ...editing, province: newProvince, city: '' });
-              }} 
-              className="w-full border rounded px-3 py-2 bg-white text-black"
-            >
-              <option value="">Chọn Tỉnh/Thành phố</option>
-              {PROVINCES.map(province => (
-                <option key={province.name} value={province.name}>{province.name}</option>
-              ))}
-            </select>
-            <select 
-              value={editing.city || ''} 
-              onChange={e => setEditing({ ...editing, city: e.target.value })} 
-              className="w-full border rounded px-3 py-2 bg-white text-black"
-              disabled={!editing.province}
-            >
-              <option value="">Chọn Quận/Huyện</option>
-              {editing.province && PROVINCES.find(p => p.name === editing.province)?.cities.map(city => (
-                <option key={city} value={city}>{city}</option>
-              ))}
-            </select>
-            <select value={editing.gender || 'Nam'} onChange={e => setEditing({ ...editing, gender: e.target.value })} className="w-full border rounded px-3 py-2 bg-white text-black">
-              <option value="Nam">Nam</option>
-              <option value="Nữ">Nữ</option>
-              <option value="Khác">Khác</option>
-            </select>
-            <select value={editing.role} onChange={e => setEditing({ ...editing, role: e.target.value })} className="w-full border rounded px-3 py-2 bg-white text-black">
-              <option value="ADMIN">ADMIN</option>
-              <option value="EMPLOYEE">EMPLOYEE</option>
-              <option value="CUSTOMER">CUSTOMER</option>
-            </select>
+            {/* Tên */}
+            <div>
+              <input 
+                value={editing.name} 
+                onChange={e => { 
+                  setEditing({ ...editing, name: e.target.value }); 
+                  setEditErrors({ ...editErrors, name: undefined }); 
+                }} 
+                className={`w-full border-2 rounded px-3 py-2 text-black bg-white ${editErrors.name ? 'border-red-500' : 'border-gray-400'}`} 
+                placeholder="Tên *" 
+              />
+              {editErrors.name && <p className="text-red-600 text-sm mt-1">{editErrors.name}</p>}
+            </div>
+
+            {/* Email */}
+            <div>
+              <input 
+                value={editing.email} 
+                onChange={e => { 
+                  setEditing({ ...editing, email: e.target.value }); 
+                  setEditErrors({ ...editErrors, email: undefined }); 
+                }} 
+                className={`w-full border-2 rounded px-3 py-2 text-black bg-white ${editErrors.email ? 'border-red-500' : 'border-gray-400'}`} 
+                placeholder="Email * (@gmail.com, @example.com, @cineticket.com)" 
+              />
+              {editErrors.email && <p className="text-red-600 text-sm mt-1">{editErrors.email}</p>}
+            </div>
+
+            {/* Số điện thoại */}
+            <div>
+              <input 
+                value={editing.phone} 
+                onChange={e => { 
+                  setEditing({ ...editing, phone: e.target.value }); 
+                  setEditErrors({ ...editErrors, phone: undefined }); 
+                }} 
+                className={`w-full border-2 rounded px-3 py-2 text-black bg-white ${editErrors.phone ? 'border-red-500' : 'border-gray-400'}`} 
+                placeholder="Số điện thoại * (10 chữ số)" 
+              />
+              {editErrors.phone && <p className="text-red-600 text-sm mt-1">{editErrors.phone}</p>}
+            </div>
+
+            {/* Tỉnh/Thành phố */}
+            <div>
+              <select 
+                value={editing.province || ''} 
+                onChange={e => {
+                  const newProvince = e.target.value;
+                  setEditing({ ...editing, province: newProvince, city: '' });
+                  setEditErrors({ ...editErrors, province: undefined, city: undefined }); 
+                }} 
+                className={`w-full border-2 rounded px-3 py-2 bg-white text-black ${editErrors.province ? 'border-red-500' : 'border-gray-400'}`}
+              >
+                <option value="">Chọn Tỉnh/Thành phố *</option>
+                {PROVINCES.map(province => (
+                  <option key={province.name} value={province.name}>{province.name}</option>
+                ))}
+              </select>
+              {editErrors.province && <p className="text-red-600 text-sm mt-1">{editErrors.province}</p>}
+            </div>
+
+            {/* Quận/Huyện */}
+            <div>
+              <select 
+                value={editing.city || ''} 
+                onChange={e => { 
+                  setEditing({ ...editing, city: e.target.value }); 
+                  setEditErrors({ ...editErrors, city: undefined }); 
+                }} 
+                className={`w-full border-2 rounded px-3 py-2 bg-white text-black ${editErrors.city ? 'border-red-500' : 'border-gray-400'}`}
+                disabled={!editing.province}
+              >
+                <option value="">Chọn Quận/Huyện *</option>
+                {editing.province && PROVINCES.find(p => p.name === editing.province)?.cities.map(city => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
+              {editErrors.city && <p className="text-red-600 text-sm mt-1">{editErrors.city}</p>}
+            </div>
+
+            {/* Giới tính */}
+            <div>
+              <select 
+                value={editing.gender || 'Nam'} 
+                onChange={e => { 
+                  setEditing({ ...editing, gender: e.target.value }); 
+                  setEditErrors({ ...editErrors, gender: undefined }); 
+                }} 
+                className={`w-full border-2 rounded px-3 py-2 bg-white text-black ${editErrors.gender ? 'border-red-500' : 'border-gray-400'}`}
+              >
+                <option value="">Chọn giới tính *</option>
+                <option value="Nam">Nam</option>
+                <option value="Nữ">Nữ</option>
+                <option value="Khác">Khác</option>
+              </select>
+              {editErrors.gender && <p className="text-red-600 text-sm mt-1">{editErrors.gender}</p>}
+            </div>
+
+            {/* Vai trò */}
+            <div>
+              <select 
+                value={editing.role} 
+                onChange={e => { 
+                  setEditing({ ...editing, role: e.target.value }); 
+                  setEditErrors({ ...editErrors, role: undefined }); 
+                }} 
+                className={`w-full border-2 rounded px-3 py-2 bg-white text-black ${editErrors.role ? 'border-red-500' : 'border-gray-400'}`}
+              >
+                <option value="">Chọn vai trò *</option>
+                <option value="ADMIN">ADMIN</option>
+                <option value="EMPLOYEE">EMPLOYEE</option>
+                <option value="CUSTOMER">CUSTOMER</option>
+              </select>
+              {editErrors.role && <p className="text-red-600 text-sm mt-1">{editErrors.role}</p>}
+            </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setEditing(null)} className="px-4 py-2 bg-gray-100 text-black rounded">Hủy</button>
               <button onClick={commitEdit} className="px-4 py-2 bg-blue-600 text-white rounded">Lưu</button>
