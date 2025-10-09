@@ -1,13 +1,24 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import AdminLayout from './AdminLayout';
-import axios from 'axios';
+// ============================================================================
+// USER MANAGEMENT COMPONENT - Quản lý người dùng cho Admin
+// ============================================================================
 
+// 1. IMPORTS VÀ DEPENDENCIES
+import React, { useMemo, useState, useEffect } from 'react'; // React hooks tối ưu performance
+import AdminLayout from './AdminLayout'; // Layout wrapper cho admin pages
+import axios from 'axios'; // HTTP client để gọi API
+
+// 2. DATA CONSTANTS - Dữ liệu tĩnh dùng trong component
+
+// ROLES - Định nghĩa các vai trò người dùng trong hệ thống
 const ROLES = [
-  { label: 'Tất cả', value: 'all' },
-  { label: 'ADMIN', value: 'admin' },
-  { label: 'EMPLOYEE', value: 'employee' },
-  { label: 'CUSTOMER', value: 'customer' }
+  { label: 'Tất cả', value: 'all' },      // Option để hiển thị tất cả users
+  { label: 'ADMIN', value: 'admin' },     // Quản trị viên - quyền cao nhất
+  { label: 'EMPLOYEE', value: 'employee' }, // Nhân viên - quản lý rạp
+  { label: 'CUSTOMER', value: 'customer' }  // Khách hàng - đặt vé
 ];
+
+// PROVINCES - Dữ liệu tỉnh/thành và quận/huyện Việt Nam
+// Dùng cho dropdown chọn địa chỉ khi tạo/sửa user
 
 const PROVINCES = [
   { name: 'Hà Nội', cities: ['Ba Đình', 'Hoàn Kiếm', 'Tây Hồ', 'Long Biên', 'Cầu Giấy', 'Đống Đa', 'Hai Bà Trưng', 'Hoàng Mai', 'Thanh Xuân', 'Sóc Sơn', 'Đông Anh', 'Gia Lâm', 'Nam Từ Liêm', 'Bắc Từ Liêm', 'Mê Linh', 'Hà Đông', 'Sơn Tây', 'Ba Vì', 'Phúc Thọ', 'Đan Phượng', 'Hoài Đức', 'Quốc Oai', 'Thạch Thất', 'Chương Mỹ', 'Thanh Oai', 'Thường Tín', 'Phú Xuyên', 'Ứng Hòa', 'Mỹ Đức'] },
@@ -22,31 +33,37 @@ const PROVINCES = [
   { name: 'Bắc Ninh', cities: ['Bắc Ninh', 'Từ Sơn', 'Tiên Du', 'Quế Võ', 'Yên Phong', 'Gia Bình', 'Lương Tài', 'Thuận Thành'] }
 ];
 
+// 3. HELPER COMPONENTS - Components tái sử dụng cho clean code
+
+// TableHeaderCell - Component cho header của table
 const TableHeaderCell = ({ children }) => (
   <th className="px-4 py-3 text-left text-sm font-semibold text-black border-b bg-gray-50">
     {children}
   </th>
 );
 
+// TableCell - Component cho cell của table
 const TableCell = ({ children }) => (
   <td className="px-4 py-4 text-sm text-black border-b">{children}</td>
 );
 
+// getRoleStyle - Function trả về CSS class cho từng role (màu sắc khác nhau)
 const getRoleStyle = (role) => {
   switch(role.toUpperCase()) {
     case 'ADMIN':
-      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800';
+      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800'; // Đỏ cho Admin
     case 'EMPLOYEE':
-      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800';
+      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800'; // Xanh cho Employee  
     case 'CUSTOMER':
-      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800';
+      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800'; // Xanh lá cho Customer
     default:
-      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800';
+      return 'px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800'; // Xám cho role khác
   }
 };
 
+// Modal Component - Popup window cho các actions (view, edit, delete, create)
 const Modal = ({ open, title, children, onClose }) => {
-  if (!open) return null;
+  if (!open) return null; // Không render nếu modal đóng
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-full max-w-xl bg-white rounded-xl shadow-lg border p-5">
@@ -60,26 +77,34 @@ const Modal = ({ open, title, children, onClose }) => {
   );
 };
 
+// 4. MAIN COMPONENT - Component chính quản lý users
 const UserManagementContent = () => {
-  const [searchText, setSearchText] = useState('');
-  const [query, setQuery] = useState(''); // truy vấn áp dụng khi bấm tìm kiếm
-  const [role, setRole] = useState('all');
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // 5. STATE MANAGEMENT - Quản lý các trạng thái của component
+  
+  // Search & Filter States
+  const [searchText, setSearchText] = useState(''); // Text user nhập trong ô search
+  const [query, setQuery] = useState(''); // Query thực tế được áp dụng khi bấm tìm kiếm
+  const [role, setRole] = useState('all'); // Role được chọn để filter
+  
+  // Data States  
+  const [users, setUsers] = useState([]); // Danh sách users từ database
+  const [loading, setLoading] = useState(true); // Trạng thái loading khi fetch data
 
-  const [viewing, setViewing] = useState(null);
-  const [editing, setEditing] = useState(null);
-  const [deleting, setDeleting] = useState(null);
-  const [creating, setCreating] = useState(null);
-  const [createErrors, setCreateErrors] = useState({});
+  // Modal States - Quản lý các popup windows
+  const [viewing, setViewing] = useState(null); // User đang được xem chi tiết
+  const [editing, setEditing] = useState(null); // User đang được chỉnh sửa
+  const [deleting, setDeleting] = useState(null); // User đang được xóa
+  const [creating, setCreating] = useState(null); // Dữ liệu user mới đang tạo
+  const [createErrors, setCreateErrors] = useState({}); // Lỗi validation khi tạo user
 
-  // Fetch users từ database
+  // 6. DATA FETCHING - Lấy dữ liệu users từ backend API
   const fetchUsers = async () => {
     try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
+      setLoading(true); // Bắt đầu loading state
+      const token = localStorage.getItem('token'); // Lấy JWT token từ localStorage
       console.log('Token from localStorage:', token ? 'Token exists' : 'No token'); // Debug log
       
+      // SECURITY CHECK: Kiểm tra xem user đã đăng nhập chưa
       if (!token) {
         console.error('No token found in localStorage');
         setUsers([]);
@@ -88,78 +113,86 @@ const UserManagementContent = () => {
       }
       
       console.log('Making API request to fetch users...');
+      // GỌI API: Lấy danh sách users với authorization header
       const response = await axios.get('http://localhost:5000/api/users/', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` } // Gửi token để xác thực
       });
       
       console.log('API Response successful, users count:', response.data.length); // Debug log
       
-      // Transform dữ liệu từ API để phù hợp với format hiện tại
+      // DATA TRANSFORMATION: Chuyển đổi dữ liệu từ API format sang UI format
       const transformedUsers = response.data.map(user => ({
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role.toUpperCase(),
-        gender: user.gender === 'male' ? 'Nam' : user.gender === 'female' ? 'Nữ' : 'Khác',
-        province: user.province || 'N/A',
-        city: user.city || 'N/A',
-        createdAt: new Date(user.createdAt).toLocaleDateString('vi-VN')
+        id: user._id,                    // MongoDB _id → id
+        name: user.name,                 // Tên user
+        email: user.email,               // Email user
+        phone: user.phone,               // Số điện thoại
+        role: user.role.toUpperCase(),   // Role viết hoa để consistent
+        gender: user.gender === 'male' ? 'Nam' : user.gender === 'female' ? 'Nữ' : 'Khác', // Convert gender
+        province: user.province || 'N/A', // Tỉnh/thành (N/A nếu không có)
+        city: user.city || 'N/A',        // Quận/huyện (N/A nếu không có)
+        createdAt: new Date(user.createdAt).toLocaleDateString('vi-VN') // Format ngày theo VN
       }));
       
-      setUsers(transformedUsers);
+      setUsers(transformedUsers); // Cập nhật state với dữ liệu đã transform
       console.log('Users set successfully:', transformedUsers.length);
     } catch (error) {
       console.error('Lỗi khi fetch users:', error);
       console.error('Error response:', error.response?.data);
       
-      // Nếu lỗi 401 (Unauthorized), có thể token đã hết hạn
+      // XỬ LÝ LỖI 401: Token hết hạn hoặc không hợp lệ
       if (error.response?.status === 401) {
         console.error('Token might be expired or invalid');
         alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        // Xóa token và user data, chuyển về login
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/';
       } 
       else {
+        // Lỗi khác: server error, network error, etc.
         alert('Không thể tải danh sách người dùng. Vui lòng thử lại sau.');
       }
-      setUsers([]);
+      setUsers([]); // Reset users list
     } finally {
-      setLoading(false);
+      setLoading(false); // Kết thúc loading state
     }
   };
 
-  // useEffect để fetch dữ liệu khi component mount
+  // 7. COMPONENT LIFECYCLE - useEffect để fetch data khi component mount
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    fetchUsers(); // Gọi API lấy users ngay khi component được render lần đầu
+  }, []); // Dependencies rỗng = chỉ chạy 1 lần
 
+  // 8. SEARCH FUNCTIONALITY - Xử lý tìm kiếm
   const handleSearch = () => {
-    setQuery(searchText.trim());
+    setQuery(searchText.trim()); // Áp dụng search text vào query state
   };
 
+  // 9. FILTER & SEARCH LOGIC - useMemo để tối ưu performance
   const filteredUsers = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase(); // Chuẩn hóa query để so sánh
     return users.filter(u => {
+      // Filter theo ROLE
       const matchRole = role === 'all' || u.role.toLowerCase() === role;
-      // Tìm theo email
+      // Filter theo SEARCH QUERY (tìm trong email)
       const matchQuery = !q || (u.email || '').toLowerCase().includes(q);
-      return matchRole && matchQuery;
+      return matchRole && matchQuery; // Phải thỏa mãn cả 2 điều kiện
     });
-  }, [query, role, users]);
+  }, [query, role, users]); // Chỉ tính toán lại khi 1 trong 3 dependencies thay đổi
 
+  // 10. CREATE USER FUNCTIONS
   const startCreate = () => {
+    // Khởi tạo form tạo user mới với giá trị mặc định
     setCreating({ 
-      name: '', 
-      email: '', 
-      phone: '', 
-      role: 'CUSTOMER', 
-      gender: 'Nam',
-      province: '',
-      city: ''
+      name: '',           // Tên trống
+      email: '',          // Email trống  
+      phone: '',          // SĐT trống
+      role: 'CUSTOMER',   // Role mặc định là customer
+      gender: 'Nam',      // Giới tính mặc định
+      province: '',       // Tỉnh trống
+      city: ''           // Thành phố trống
     });
-    setCreateErrors({});
+    setCreateErrors({}); // Reset errors
   };
 
   const commitCreate = async () => {
@@ -211,11 +244,8 @@ const UserManagementContent = () => {
       // Hiển thị thông báo thành công
       alert('✅ Tạo người dùng thành công!');
       
-      // optional: lưu token để có thể đăng nhập ngay (tùy flow hiện tại)
-      const apiUser = res.data;
-      if (apiUser.token) {
-        localStorage.setItem('token', apiUser.token);
-      }
+      // REMOVED: Không lưu token của user mới để tránh ghi đè token admin
+      // Giữ nguyên token admin trong localStorage để tiếp tục có quyền quản lý
     } catch (e) {
       console.error(e);
       const status = e.response?.status;

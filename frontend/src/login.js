@@ -1,77 +1,109 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff, Mail, Lock, Film, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
+// ============================================================================
+// LOGIN COMPONENT - Trang đăng nhập cho hệ thống đặt vé xem phim CineTicket
+// ============================================================================
+
+// 1. IMPORTS VÀ DEPENDENCIES
+import React, { useState, useEffect } from 'react'; // React hooks cho state management và side effects
+import { Eye, EyeOff, Mail, Lock, Film, Loader2, AlertCircle, CheckCircle } from 'lucide-react'; // Icons đẹp cho UI
+import { useNavigate } from 'react-router-dom'; // Hook điều hướng giữa các trang
+import { useAuth } from './contexts/AuthContext'; // Custom hook quản lý authentication
 
 const Login = () => {
-  const navigate = useNavigate();
-  const { login } = useAuth();
+  // 2. HOOKS VÀ STATE INITIALIZATION
+  const navigate = useNavigate(); // Hook để điều hướng sau khi đăng nhập thành công
+  const { login } = useAuth(); // Lấy function login từ AuthContext để lưu token và user data
+  
+  // 3. STATE MANAGEMENT - Quản lý các trạng thái của component
   const [formData, setFormData] = useState({
-    email: '',
-    password: ''
+    email: '',     // Lưu email người dùng nhập
+    password: ''   // Lưu mật khẩu người dùng nhập
   });
   
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Toggle hiện/ẩn mật khẩu
+  const [errors, setErrors] = useState({}); // Lưu các lỗi validation
+  const [isLoading, setIsLoading] = useState(false); // Trạng thái loading khi đăng nhập
+  const [rememberMe, setRememberMe] = useState(false); // Trạng thái checkbox ghi nhớ
 
+  // 4. CHỨC NĂNG GHI NHỚ ĐĂNG NHẬP
+  // useEffect chạy khi component mount để kiểm tra thông tin đã lưu
+  useEffect(() => {
+    const savedUser = localStorage.getItem('rememberUser'); // Lấy thông tin đã lưu từ localStorage
+    if (savedUser) {
+      const userData = JSON.parse(savedUser); // Parse JSON string thành object
+      if (userData.rememberMe) { // Nếu user đã chọn ghi nhớ
+        setFormData(prev => ({
+          ...prev,
+          email: userData.email // Tự động điền email đã lưu
+        }));
+        setRememberMe(true); // Tự động check checkbox ghi nhớ
+      }
+    }
+  }, []); // Dependencies rỗng nghĩa là chỉ chạy 1 lần khi component mount
+
+  // 5. XỬ LÝ THAY ĐỔI INPUT VÀ AUTO CLEAR ERRORS
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value } = e.target; // Destructuring để lấy name và value từ input
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: value // Cập nhật field tương ứng trong formData
     }));
     
-    // Clear errors when user types
+    // TÍNH NĂNG THÔNG MINH: Tự động xóa lỗi khi user bắt đầu sửa field đó
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
-        [name]: ''
+        [name]: '' // Xóa lỗi của field đang được sửa
       }));
     }
   };
 
+  // 6. TOGGLE HIỆN/ẨN MẬT KHẨU - Cải thiện UX
   const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
+    setShowPassword(!showPassword); // Đảo ngược trạng thái hiện/ẩn mật khẩu
   };
 
+  // 7. VALIDATION FORM - Kiểm tra dữ liệu trước khi gửi
   const validateForm = () => {
-    const newErrors = {};
+    const newErrors = {}; // Object chứa các lỗi
 
+    // Validation cho EMAIL
     if (!formData.email) {
       newErrors.email = 'Vui lòng nhập email';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) { // Regex kiểm tra format email
       newErrors.email = 'Email không hợp lệ';
     }
 
+    // Validation cho PASSWORD
     if (!formData.password) {
       newErrors.password = 'Vui lòng nhập mật khẩu';
-    } else if (formData.password.length < 6) {
+    } else if (formData.password.length < 6) { // Yêu cầu tối thiểu 6 ký tự
       newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
     }
 
-    return newErrors;
+    return newErrors; // Trả về object chứa lỗi (rỗng nếu không có lỗi)
   };
 
+  // 8. XỬ LÝ ĐĂNG NHẬP CHÍNH - Function quan trọng nhất
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Ngăn form submit mặc định của browser
     
-    // Validate form
+    // BƯỚC 1: Validate form trước khi gửi API
     const validationErrors = validateForm();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
+    if (Object.keys(validationErrors).length > 0) { // Nếu có lỗi
+      setErrors(validationErrors); // Hiển thị lỗi cho user
+      return; // Dừng xử lý
     }
 
-    setIsLoading(true);
-    setErrors({});
+    // BƯỚC 2: Bắt đầu quá trình đăng nhập
+    setIsLoading(true); // Hiển thị loading spinner
+    setErrors({}); // Xóa các lỗi cũ
 
     try {
+      // BƯỚC 3: Gửi request đến backend API
       const response = await fetch('http://localhost:5000/api/users/login', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json', // Báo server nhận JSON
         },
         body: JSON.stringify({
           email: formData.email,
@@ -79,53 +111,64 @@ const Login = () => {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json(); // Parse response thành JSON
 
+      // BƯỚC 4: Kiểm tra response từ server
       if (!response.ok) {
         throw new Error(data.message || 'Đăng nhập thất bại');
       }
 
-      // Lưu thông tin user và token
+      // BƯỚC 5: Chuẩn bị dữ liệu user để lưu
       const userData = {
-        id: data._id,
-        name: data.name,
-        email: data.email,
-        role: data.role
+        id: data._id,     // ID từ MongoDB
+        name: data.name,  // Tên user
+        email: data.email, // Email user
+        role: data.role   // Vai trò (admin/employee/customer)
       };
-      login(data.token, userData);
+      
+      // BƯỚC 6: XỬ LÝ CHỨC NĂNG GHI NHỚ ĐĂNG NHẬP
+      if (rememberMe) {
+        // Nếu user chọn ghi nhớ → Lưu email vào localStorage
+        localStorage.setItem('rememberUser', JSON.stringify({
+          email: formData.email,
+          rememberMe: true
+        }));
+      } else {
+        // Nếu không chọn ghi nhớ → Xóa thông tin đã lưu
+        localStorage.removeItem('rememberUser');
+      }
+      
+      // BƯỚC 7: Lưu token và user data vào AuthContext
+      login(data.token, userData); // Gọi function login từ AuthContext
 
-      // Reset form
+      // BƯỚC 8: Reset form sau khi đăng nhập thành công
       setFormData({
         email: '',
         password: ''
       });
       setErrors({});
       
-      // Chuyển hướng đến trang chủ
+      // BƯỚC 9: Chuyển hướng đến trang chủ
       window.location.href = '/home';
       
     } catch (error) {
+      // XỬ LÝ LỖI: Hiển thị lỗi cho user nếu đăng nhập thất bại
       setErrors({
         general: error.message || 'Đã có lỗi xảy ra, vui lòng thử lại'
       });
     } finally {
+      // LUÔN CHẠY: Tắt loading state dù thành công hay thất bại
       setIsLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => {
-    console.log('Google login clicked');
-    // Implement Google OAuth login
-  };
-
-  const handleFacebookLogin = () => {
-    console.log('Facebook login clicked');
-    // Implement Facebook OAuth login
-  };
+  // ============================================================================
+  // 9. RENDER JSX - GIAO DIỆN NGƯỜI DÙNG
+  // ============================================================================
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-black flex items-center justify-center p-4">
-      {/* Background movie elements */}
+      {/* BACKGROUND EFFECTS - Tạo hiệu ứng nền cinema */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-20 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 right-20 w-40 h-40 bg-red-500/10 rounded-full blur-3xl"></div>
@@ -245,42 +288,6 @@ const Login = () => {
                 'Đăng nhập'
               )}
             </button>
-
-            {/* Divider */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-600"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-black/60 text-gray-400">Hoặc đăng nhập với</span>
-              </div>
-            </div>
-
-            {/* Social Login */}
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={handleGoogleLogin}
-                className="flex items-center justify-center px-4 py-3 bg-white/10 hover:bg-white/20 border border-gray-600 hover:border-gray-500 rounded-xl transition-all duration-300"
-              >
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span className="text-white text-sm font-medium">Google</span>
-              </button>
-
-              <button
-                onClick={handleFacebookLogin}
-                className="flex items-center justify-center px-4 py-3 bg-white/10 hover:bg-white/20 border border-gray-600 hover:border-gray-500 rounded-xl transition-all duration-300"
-              >
-                <svg className="w-5 h-5 mr-2 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-                <span className="text-white text-sm font-medium">Facebook</span>
-              </button>
-            </div>
 
             {/* Register Link */}
             <div className="text-center pt-4">
