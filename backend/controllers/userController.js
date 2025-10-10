@@ -86,18 +86,29 @@ export const changePassword = async (req, res) => {
  * @desc    Quên mật khẩu (Gửi email chứa link reset token)
  * @route   POST /api/users/forgotpassword
  * @access  Public
+ * 
+ * Quy trình hoạt động:
+ * 1. Nhận email từ request body
+ * 2. Kiểm tra email có tồn tại trong database không
+ * 3. Tạo token ngẫu nhiên và lưu vào user profile
+ * 4. Gửi email chứa link reset password
+ * 5. Trả về kết quả cho người dùng
  */
 export const forgotPassword = async (req, res) => {
+  // Lấy email từ request body
   const { email } = req.body;
 
   try {
+    // Tìm user với email được cung cấp
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "❌ Không tìm thấy email trong hệ thống" });
     }
 
-    // Tạo token reset
+    // Tạo token ngẫu nhiên bằng crypto
+    // Buffer 20 bytes => chuỗi hex 40 ký tự
     const resetToken = crypto.randomBytes(20).toString("hex");
+    // Lưu token và thời gian hết hạn (10 phút) vào user
     user.resetPasswordToken = resetToken;
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 phút
     await user.save();
@@ -145,12 +156,39 @@ export const forgotPassword = async (req, res) => {
  * @desc    Reset mật khẩu bằng token
  * @route   PUT /api/users/resetpassword/:token
  * @access  Public
+ * 
+ * Quy trình hoạt động:
+ * 1. Nhận token từ URL params và password mới từ request body
+ * 2. Tìm user với token hợp lệ và chưa hết hạn
+ * 3. Cập nhật mật khẩu mới và xóa token
+ * 4. Lưu thông tin và trả về kết quả
+ * 
+ * Lưu ý:
+ * - Token phải còn hiệu lực (chưa hết 10 phút)
+ * - Mật khẩu sẽ được hash tự động bởi mongoose middleware
+ * - Token sẽ bị xóa sau khi đổi mật khẩu thành công
  */
 export const resetPassword = async (req, res) => {
   try {
-    const { password } = req.body;
+    // Lấy mật khẩu mới và xác nhận mật khẩu từ body, token từ URL params
+    const { password, confirmPassword } = req.body;
     const token = req.params.token; // Lấy từ URL, không phải body
 
+    // Kiểm tra xem đã nhập đủ thông tin chưa
+    if (!password || !confirmPassword) {
+      return res.status(400).json({ 
+        message: "Vui lòng nhập đầy đủ mật khẩu và xác nhận mật khẩu" 
+      });
+    }
+
+    // Kiểm tra mật khẩu và xác nhận mật khẩu có khớp nhau không
+    if (password !== confirmPassword) {
+      return res.status(400).json({ 
+        message: "Mật khẩu và xác nhận mật khẩu không khớp" 
+      });
+    }
+
+    // Tìm user với token hợp lệ và chưa hết hạn
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpire: { $gt: Date.now() }, // Kiểm tra token còn hạn
@@ -159,11 +197,6 @@ export const resetPassword = async (req, res) => {
     if (!user) {
       return res.status(400).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
     }
-
-    // Hash mật khẩu mới và lưu vào DB
-    // Lưu ý: Nếu bạn đã cấu hình pre-save hook trong Mongoose model để tự động hash,
-    // thì không cần đoạn code `bcrypt.genSalt` và `bcrypt.hash` này.
-    // Dưới đây là cách an toàn để đảm bảo hash nếu model hook không hoạt động:
 
     // const salt = await bcrypt.genSalt(10);
     // user.password = await bcrypt.hash(password, salt);

@@ -7,23 +7,25 @@ import {
   deleteVoucher,
 } from "../controllers/voucherController.js";
 
+// 'protect' ensures the user is authenticated; 'adminOnly' restricts access to admin users only.
 import protect, { adminOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// Lấy tất cả vouchers (public)
+// Get all vouchers (public) - Lấy tất cả vouchers (công khai)
 router.get("/", getVouchers);
 
-// Lấy voucher theo ID (public)
+// Get voucher by ID (public) - Lấy voucher theo ID (công khai)
 router.get("/:id", getVoucherById);
 
 // Tạo voucher (chỉ admin)
+// 'protect' ensures the user is authenticated, while 'adminOnly' restricts access to admin users (authorization).
 router.post("/", protect, adminOnly, createVoucher);
 
-// Cập nhật voucher (chỉ admin)
+// Update voucher (admin only) - Cập nhật voucher (chỉ admin)
 router.put("/:id", protect, adminOnly, updateVoucher);
 
-// Xóa voucher (chỉ admin)
+// Delete voucher (admin only) - Xóa voucher (chỉ admin)
 router.delete("/:id", protect, adminOnly, deleteVoucher);
 
 export default router;

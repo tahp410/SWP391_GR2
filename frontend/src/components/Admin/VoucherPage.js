@@ -44,7 +44,7 @@ const VoucherPage = () => {
   const [formData, setFormData] = useState({
     code: "",
     description: "",
-    discountType: "percentage", // "percentage" or "fixed"
+    discountType: "Percentage", // "percentage" or "fixed"
     discountValue: "", // number
     minPurchase: "",
     maxDiscount: "",
@@ -194,7 +194,7 @@ const VoucherPage = () => {
     setFormData({
       code: v.code || "",
       description: v.description || "",
-      discountType: v.discountType || "percentage",
+      discountType: v.discountType || "Percentage",
       discountValue: v.discountValue != null ? String(v.discountValue) : "",
       minPurchase: v.minPurchase != null ? String(v.minPurchase) : "",
       maxDiscount: v.maxDiscount != null ? String(v.maxDiscount) : "",
