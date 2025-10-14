@@ -3,7 +3,6 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-// import transporter from "../config/email.js"; // Đã được di chuyển vào hàm forgotPassword để tạo riêng
 
 /**
  * @desc    Đăng nhập người dùng và trả về JWT
@@ -108,12 +107,11 @@ export const forgotPassword = async (req, res) => {
     // Tạo token ngẫu nhiên bằng crypto
     // Buffer 20 bytes => chuỗi hex 40 ký tự
     const resetToken = crypto.randomBytes(20).toString("hex");
-    // Lưu token và thời gian hết hạn (10 phút) vào user
     user.resetPasswordToken = resetToken;
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 phút
     await user.save();
 
-    // Link reset (frontend của bạn)
+    //  tạo Link reset (frontend của bạn)
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
     // Tạo transporter gmail
@@ -198,10 +196,6 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
     }
 
-    // const salt = await bcrypt.genSalt(10);
-    // user.password = await bcrypt.hash(password, salt);
-
-    // Nếu sử dụng pre-save hook, chỉ cần:
     user.password = password;
 
     // Xóa token reset

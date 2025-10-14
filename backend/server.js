@@ -21,7 +21,7 @@ app.use(express.json()); // parse body JSON
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
-app.use('/api/vouchers', voucherRoutes); // ✅ Thêm dòng này
+app.use('/api/vouchers', voucherRoutes);
 
 // Route test
 app.get("/", (req, res) => {
