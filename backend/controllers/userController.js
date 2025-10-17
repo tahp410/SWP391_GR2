@@ -7,24 +7,15 @@ import User from "../models/userModel.js"; // Model User để tương tác vớ
 import jwt from "jsonwebtoken"; // Thư viện tạo và verify JWT tokens
 import bcrypt from "bcryptjs"; // Thư viện hash password để bảo mật
 
-// ============================================================================
-// 3. AUTHENTICATION FUNCTIONS - Đăng ký và đăng nhập
-// ============================================================================
-
-// REGISTER USER - Đăng ký tài khoản mới (có thể dùng từ admin tạo user)
+// REGISTER USER - Đăng ký tài khoản mới (cho người dùng tự đăng ký từ frontend)
 export const registerUser = async (req, res) => {
   try {
-    // DESTRUCTURING với default values để đảm bảo có giá trị mặc định
+    // DESTRUCTURING - Chỉ lấy thông tin cơ bản cho đăng ký
     const {
       name,
       email,
       password,
-      phone,
-      role = 'customer',      // Mặc định là customer
-      gender = 'other',       // Mặc định là other
-      province = 'N/A',       // Mặc định N/A nếu không có
-      city = 'N/A',          // Mặc định N/A nếu không có
-      dob = '2000-01-01'     // Ngày sinh mặc định
+      phone
     } = req.body;
 
     // VALIDATION: Kiểm tra các field bắt buộc
@@ -39,43 +30,118 @@ export const registerUser = async (req, res) => {
     }
 
     // PHONE NORMALIZATION: Chuẩn hóa số điện thoại
-    // Nếu không đúng format 10 số thì gán số mặc định
     const normalizedPhone = /^\d{10}$/.test((phone || '').toString().trim())
       ? (phone || '').toString().trim()
       : '0000000000';
 
-    // CREATE USER: Tạo user mới trong database
-    // Password sẽ được auto-hash bởi pre('save') middleware trong User model
+    // CREATE USER: Tạo user mới với role mặc định là customer
     const user = await User.create({
       name,
-      email: email.toLowerCase(),         // Chuẩn hóa email
+      email: email.toLowerCase(),
       password,                          // Sẽ được hash tự động
       phone: normalizedPhone,
-      role: (role || 'customer').toLowerCase(),
-      gender: (gender || 'other').toLowerCase(),
-      province,
-      city,
-      dob: new Date(dob)                // Convert string thành Date object
+      role: 'customer',                  // Luôn là customer khi tự đăng ký
+      gender: 'other',                   // Giá trị mặc định
+      province: 'Chưa cập nhật',         // Thân thiện hơn N/A
+      city: 'Chưa cập nhật',             // Thân thiện hơn N/A
+      dob: new Date('2000-01-01')
     });
 
-    // JWT TOKEN GENERATION: Tạo token cho user mới
-    const secret = process.env.JWT_SECRET || 'devsecret'; // Lấy secret từ env
+    // JWT TOKEN GENERATION: Tạo token để user đăng nhập luôn
+    const secret = process.env.JWT_SECRET || 'devsecret';
     const token = jwt.sign({ id: user._id }, secret, {
-      expiresIn: '30d'                   // Token có hiệu lực 30 ngày
+      expiresIn: '30d'
     });
 
-    // SUCCESS RESPONSE: Trả về thông tin user (KHÔNG bao gồm token khi admin tạo user)
-    // Token chỉ được trả về khi user tự đăng ký, không phải khi admin tạo user
-    return res.status(201).json({       // 201 Created
+    // SUCCESS RESPONSE: Trả về thông tin user VÀ token để đăng nhập luôn
+    return res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
-      message: "Tạo người dùng thành công"
-      // Không trả về token để tránh ghi đè token admin
+      token: token,                      // Trả về token để đăng nhập luôn
+      message: "Đăng ký thành công"
     });
   } catch (error) {
-    // ERROR HANDLING: Lỗi có thể do validation, database, hoặc duplicate key
+    return res.status(500).json({ message: "Lỗi máy chủ", error: error.message });
+  }
+};
+
+// ADD USER - Admin thêm user mới (có thể set role và thông tin đầy đủ)
+export const addUser = async (req, res) => {
+  try {
+    // DESTRUCTURING với default values cho admin tạo user
+    const {
+      name,
+      email,
+      password,
+      phone,
+      role = 'customer',      // Admin có thể chọn role
+      gender = 'other',
+      province,               // Không set default ở đây
+      city,                   // Không set default ở đây  
+      dob = '2000-01-01'
+    } = req.body;
+
+    // DEBUG LOG
+    console.log('ADD USER - Received data:', { name, email, phone, role, gender, province, city, dob });
+
+    // VALIDATION: Kiểm tra các field bắt buộc
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Thiếu tên, email hoặc mật khẩu" });
+    }
+
+    // ROLE VALIDATION: Kiểm tra role hợp lệ
+    const validRoles = ['customer', 'employee', 'admin'];
+    if (!validRoles.includes(role.toLowerCase())) {
+      return res.status(400).json({ message: "Role không hợp lệ" });
+    }
+
+    // DUPLICATE CHECK: Kiểm tra email đã tồn tại chưa
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing) {
+      return res.status(409).json({ message: "Email đã tồn tại" });
+    }
+
+    // PHONE NORMALIZATION: Chuẩn hóa số điện thoại
+    const normalizedPhone = /^\d{10}$/.test((phone || '').toString().trim())
+      ? (phone || '').toString().trim()
+      : '0000000000';
+
+    // ADDRESS PROCESSING: Xử lý province và city
+    const finalProvince = (province && province.trim() !== '') ? province.trim() : 'Chưa cập nhật';
+    const finalCity = (city && city.trim() !== '') ? city.trim() : 'Chưa cập nhật';
+
+    console.log('ADD USER - Final address:', { finalProvince, finalCity });
+
+    // CREATE USER: Tạo user mới với đầy đủ thông tin
+    const user = await User.create({
+      name,
+      email: email.toLowerCase(),
+      password,                          // Sẽ được hash tự động
+      phone: normalizedPhone,
+      role: role.toLowerCase(),
+      gender: (gender || 'other').toLowerCase(),
+      province: finalProvince,
+      city: finalCity,
+      dob: new Date(dob)
+    });
+
+    // SUCCESS RESPONSE: Trả về thông tin user (KHÔNG có token)
+    return res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      gender: user.gender,
+      province: user.province,
+      city: user.city,
+      dob: user.dob,
+      message: "Thêm người dùng thành công"
+      // Không trả về token vì admin không cần đăng nhập vào tài khoản mới tạo
+    });
+  } catch (error) {
     return res.status(500).json({ message: "Lỗi máy chủ", error: error.message });
   }
 };
@@ -97,7 +163,6 @@ export const loginUser = async (req, res) => {
     }
 
     // PASSWORD VERIFICATION: Kiểm tra mật khẩu
-    // matchPassword là method được define trong User model
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({ message: "Mật khẩu không đúng" });
@@ -123,9 +188,6 @@ export const loginUser = async (req, res) => {
   }
 };
 
-// ============================================================================
-// 4. USER PROFILE FUNCTIONS - Chức năng liên quan đến profile cá nhân
-// ============================================================================
 
 // CHANGE PASSWORD - Đổi mật khẩu (user tự đổi mật khẩu của mình)
 export const changePassword = async (req, res) => {
@@ -138,7 +200,7 @@ export const changePassword = async (req, res) => {
     }
 
     // GET CURRENT USER: Lấy user đang đăng nhập từ protect middleware
-    // req.user được set bởi authMiddleware sau khi verify JWT token
+  
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
@@ -167,9 +229,6 @@ export const changePassword = async (req, res) => {
   }
 };
 
-// ============================================================================
-// 2. USER MANAGEMENT FUNCTIONS - Các function cho Admin quản lý users
-// ============================================================================
 
 // GET ALL USERS - Lấy danh sách tất cả người dùng (chỉ admin)
 export const getAllUsers = async (req, res) => {
@@ -231,8 +290,14 @@ export const updateUser = async (req, res) => {
     if (phone) payload.phone = phone;                       // Cập nhật số điện thoại
     if (role) payload.role = role.toLowerCase();            // Chuẩn hóa role thành lowercase
     if (gender) payload.gender = gender.toLowerCase();      // Chuẩn hóa gender thành lowercase
-    if (province) payload.province = province;              // Cập nhật tỉnh/thành
-    if (city) payload.city = city;                         // Cập nhật quận/huyện
+    
+    // SPECIAL HANDLING FOR ADDRESS: Xử lý province và city
+    if (province !== undefined) {
+      payload.province = (province && province.trim() !== '') ? province.trim() : 'Chưa cập nhật';
+    }
+    if (city !== undefined) {
+      payload.city = (city && city.trim() !== '') ? city.trim() : 'Chưa cập nhật';
+    }
     
     // SPECIAL HANDLING FOR PASSWORD: Mật khẩu cần được hash trước khi lưu
     if (password && password.trim()) {

@@ -1,15 +1,16 @@
 import express from "express";
 import protect, { adminOnly, adminOrEmployee } from "../middleware/authMiddleware.js";
-import { loginUser, changePassword, registerUser, updateUser, getAllUsers, deleteUser } from "../controllers/userController.js";
+import { loginUser, changePassword, registerUser, addUser, updateUser, getAllUsers, deleteUser } from "../controllers/userController.js";
 import { getUserProfile, updateUserProfile } from "../controllers/profileController.js";
 const router = express.Router();
 
 // Auth routes
 router.post("/login", loginUser);
 router.post("/change-password", protect, changePassword);
-router.post("/register", registerUser);
+router.post("/register", registerUser); // Người dùng tự đăng ký
 
 // Admin routes - yêu cầu quyền admin
+router.post("/add", protect, adminOnly, addUser); // Admin thêm user mới
 router.get("/", protect, adminOrEmployee, getAllUsers); // Lấy danh sách tất cả users
 router.put("/:id", protect, adminOrEmployee, updateUser); // Cập nhật user
 router.delete("/:id", protect, adminOnly, deleteUser); // Xóa user

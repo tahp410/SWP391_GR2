@@ -226,16 +226,31 @@ const UserManagementContent = () => {
     }
     try {
       const genderApi = (creating.gender || 'Nam') === 'Nữ' ? 'female' : (creating.gender || 'Nam') === 'Nam' ? 'male' : 'other';
-      await axios.post('http://localhost:5000/api/users/register', {
+      
+      // Chuẩn bị data để gửi
+      const userData = {
         name: creating.name,
         email: creating.email,
         password: creating.password || 'Password@123',
         phone: creating.phone,
         role: (creating.role || 'CUSTOMER').toLowerCase(),
         gender: genderApi,
-        province: creating.province || 'N/A',
-        city: creating.city || 'N/A',
         dob: '2000-01-01'
+      };
+
+      // Chỉ gửi province/city nếu có giá trị thực sự
+      if (creating.province && creating.province.trim() !== '') {
+        userData.province = creating.province.trim();
+      }
+      if (creating.city && creating.city.trim() !== '') {
+        userData.city = creating.city.trim();
+      }
+
+      // Sử dụng endpoint /add thay vì /register và cần token admin
+      await axios.post('http://localhost:5000/api/users/add', userData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
       });
 
       setCreating(null);
@@ -314,17 +329,8 @@ const UserManagementContent = () => {
       newErrors.gender = 'Vui lòng chọn giới tính';
     }
     
-    // Kiểm tra province (bắt buộc)
-    if (!editing.province || !editing.province.trim()) {
-      newErrors.province = 'Vui lòng nhập tỉnh/thành phố';
-    }
-    
-    // Kiểm tra city (bắt buộc)
-    if (!editing.city || !editing.city.trim()) {
-      newErrors.city = 'Vui lòng nhập quận/huyện';
-    }
-    
-    // Nếu có lỗi, hiển thị và dừng
+    // Province và city không bắt buộc - có thể để trống
+    // Nếu có lỗi khác, hiển thị và dừng
     if (Object.keys(newErrors).length > 0) {
       setEditErrors(newErrors);
       return;
@@ -333,16 +339,19 @@ const UserManagementContent = () => {
     try {
       // Gọi API cập nhật DB
       const token = localStorage.getItem('token');
+      
       // Tạo object dữ liệu cập nhật (không bao gồm password)
       const updateData = {
         name: editing.name,
         email: editing.email,
         phone: editing.phone,
         role: (editing.role || 'CUSTOMER').toLowerCase(),
-        gender: (editing.gender === 'Nữ' ? 'female' : editing.gender === 'Nam' ? 'male' : 'other'),
-        province: editing.province || 'N/A',
-        city: editing.city || 'N/A'
+        gender: (editing.gender === 'Nữ' ? 'female' : editing.gender === 'Nam' ? 'male' : 'other')
       };
+
+      // Chỉ gửi province/city nếu có giá trị hoặc muốn clear (gửi empty string)
+      updateData.province = editing.province || '';
+      updateData.city = editing.city || '';
       
       const response = await axios.put(`http://localhost:5000/api/users/${editing.id}`, updateData, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
@@ -478,8 +487,15 @@ const UserManagementContent = () => {
                   <TableCell>{u.phone}</TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      <div>{u.province}</div>
-                      <div className="text-gray-600">{u.city}</div>
+                      {(u.province === 'N/A' || u.province === 'Chưa cập nhật') && 
+                       (u.city === 'N/A' || u.city === 'Chưa cập nhật') ? (
+                        <div className="text-gray-500 italic">Chưa cập nhật địa chỉ</div>
+                      ) : (
+                        <>
+                          <div>{(u.province === 'N/A' || u.province === 'Chưa cập nhật') ? 'Chưa có tỉnh/thành' : u.province}</div>
+                          <div className="text-gray-600">{(u.city === 'N/A' || u.city === 'Chưa cập nhật') ? 'Chưa có quận/huyện' : u.city}</div>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
