@@ -6,7 +6,7 @@ import HomePage from "./components/HomePage";
 import Profile from "./components/Profile";
 import BranchManagement from "./components/Admin/BranchManagement";
 import AdminDashboard from "./components/Admin/AdminDashboard";
-import VoucherPage from "./components/Admin/VoucherPage";
+import VoucherManagement from "./components/Admin/VoucherManagement";
 import Register from './Register';
 import ForgotPassword from './forgotPassword';
 import ResetPassword from './resetPassword';
@@ -110,7 +110,7 @@ const AppInner = () => {
 
         <Route 
           path="/admin/vouchers" 
-          element={isAdmin ? <VoucherPage /> : <Navigate to="/home" />} 
+          element={isAdmin ? <VoucherManagement /> : <Navigate to="/home" />} 
         />
         
         {/* 404 Route - Catch all */}
