@@ -11,6 +11,9 @@ import Register from './Register';
 import ForgotPassword from './forgotPassword';
 import ResetPassword from './resetPassword';
 
+import MovieManagement from './components/Admin/MovieManagement';
+import ItemManagement from './components/Admin/ItemManagement';
+import ComboManagement from './components/Admin/ComboManagement';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
@@ -72,15 +75,45 @@ const AppInner = () => {
         <Route path="/showtimes" element={isAuthenticated ? <div>Showtimes Page - Coming Soon</div> : <Navigate to="/"/>} />
         
         {/* Admin Routes */}
-        <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/home" />} />
-        <Route path="/admin/branches" element={isAdmin ? <BranchManagement /> : <Navigate to="/home" />} />
-        <Route path="/admin/users" element={isAdmin ? <div>User Management - Coming Soon</div> : <Navigate to="/home" />} />
-        <Route path="/admin/movies" element={isAdmin ? <div>Movie Management - Coming Soon</div> : <Navigate to="/home" />} />
-        <Route path="/admin/bookings" element={isAdmin ? <div>Booking Management - Coming Soon</div> : <Navigate to="/home" />} />
-        <Route path="/admin/settings" element={isAdmin ? <div>Admin Settings - Coming Soon</div> : <Navigate to="/home" />} />
-        <Route path="/admin/vouchers" element={isAdmin ? <VoucherPage /> : <Navigate to="/home" />} /> {/* 👈 Thêm Voucher route */}
+        <Route 
+          path="/admin" 
+          element={isAdmin ? <AdminDashboard /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/branches" 
+          element={isAdmin ? <BranchManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/users" 
+          element={isAdmin ? <div>User Management - Coming Soon</div> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/movies" 
+          element={isAdmin ?<MovieManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/items" 
+          element={isAdmin ? <ItemManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/combos" 
+          element={isAdmin ? <ComboManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/bookings" 
+          element={isAdmin ? <div>Booking Management - Coming Soon</div> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/settings" 
+          element={isAdmin ? <div>Admin Settings - Coming Soon</div> : <Navigate to="/home" />} 
+        />
 
-        {/* 404 */}
+        <Route 
+          path="/admin/vouchers" 
+          element={isAdmin ? <VoucherPage /> : <Navigate to="/home" />} 
+        />
+        
+        {/* 404 Route - Catch all */}
         <Route 
           path="*" 
           element={

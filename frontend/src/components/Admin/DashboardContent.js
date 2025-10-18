@@ -52,8 +52,7 @@ const DashboardContent = () => {
           </div>
         </div>
 
-        {/* Người Dùng */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Người Dùng</p>
@@ -66,8 +65,7 @@ const DashboardContent = () => {
           </div>
         </div>
 
-        {/* Phim */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Phim</p>
@@ -80,8 +78,7 @@ const DashboardContent = () => {
           </div>
         </div>
 
-        {/* Đặt Vé Hôm Nay */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Đặt Vé Hôm Nay</p>
@@ -94,8 +91,7 @@ const DashboardContent = () => {
           </div>
         </div>
 
-        {/* Tổng Đặt Vé */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Tổng Đặt Vé</p>
@@ -108,8 +104,7 @@ const DashboardContent = () => {
           </div>
         </div>
 
-        {/* Doanh Thu Tháng */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Doanh Thu Tháng</p>

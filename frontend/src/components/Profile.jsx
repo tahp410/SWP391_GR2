@@ -1,7 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'
 import Header from './Header';
 const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api/users';
+
+const fmtDate = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso; 
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
 
 
 const Profile = () => {
@@ -20,17 +30,6 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
-
-  const normalizeProfile = (d = {}) => ({
-    name: d.name ?? '',
-    email: d.email ?? '',
-    dob: d.dob ? new Date(d.dob).toISOString().split('T')[0] : '',
-    phone: d.phone ?? '',
-    province: d.province ?? '',
-    city: d.city ?? '',
-    sex: d.sex ?? 'Other',
-  });
-
 
   // Fetch profile khi mở trang
   useEffect(() => {
@@ -60,10 +59,11 @@ const Profile = () => {
 
         const data = await res.json();
 
+       
         const next = {
           name: data.name ?? '',
           email: data.email ?? '',
-          dob: data.dob ? new Date(data.dob).toISOString().split('T')[0] : '',
+          dob: fmtDate(data.dob),
           phone: data.phone ?? '',
           province: data.province ?? '',
           city: data.city ?? '',
@@ -86,36 +86,34 @@ const Profile = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Profile.jsx - sửa handler update
-  const handleUpdateProfile = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(formData), 
-      });
+// Profile.jsx - sửa handler update
+const handleUpdateProfile = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_BASE}/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(formData), 
+    });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err?.message || 'Cập nhật thất bại');
-        return;
-      }
-
-      const data = await res.json();
-      const next = normalizeProfile(data);
-
-      setProfileData(next);
-      setFormData(next);
-      setIsEditing(false);
-      alert('Cập nhật thông tin thành công!');
-    } catch (e) {
-      alert(e.message || 'Lỗi kết nối server');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err?.message || 'Cập nhật thất bại');
+      return;
     }
-  };
+
+    const data = await res.json();
+    setProfileData(data);
+    setFormData(data);
+    setIsEditing(false);
+    alert('Cập nhật thông tin thành công!');
+  } catch (e) {
+    alert(e.message || 'Lỗi kết nối server');
+  }
+};
 
   const handleCancel = () => {
     setFormData({ ...profileData });
@@ -128,7 +126,7 @@ const Profile = () => {
 
   return (
     <div className="cgv-profile-container">
-      {/* Header */}
+      {/*header*/}
       <Header />
 
       {/* Breadcrumb */}
@@ -180,7 +178,7 @@ const Profile = () => {
               <div className="form-group">
                 <label className="form-label">Date of birth <span className="required">*</span></label>
                 <input
-                  type="date"
+                  type="text"
                   className="form-input"
                   value={formData.dob}
                   onChange={(e) => handleInputChange('dob', e.target.value)}
