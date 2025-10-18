@@ -13,7 +13,8 @@ import {
   User,
   Bell,
   Search,
-  ShoppingBag
+  ShoppingBag,
+  Package
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../style/adminLayout.css';
@@ -38,6 +39,7 @@ const AdminLayout = ({ children, title = 'Dashboard' }) => {
     { id: 'users', label: 'Người Dùng', icon: Users, path: '/admin/users' },
     { id: 'movies', label: 'Phim', icon: Film, path: '/admin/movies' },
     { id: 'items', label: 'Sản Phẩm', icon: ShoppingBag, path: '/admin/items' },
+    { id: 'combos', label: 'Combo', icon: Package, path: '/admin/combos' },
     { id: 'bookings', label: 'Đặt Vé', icon: Ticket, path: '/admin/bookings' },
     { id: 'settings', label: 'Cài Đặt', icon: Settings, path: '/admin/settings' }
   ];

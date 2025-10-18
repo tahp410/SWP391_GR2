@@ -8,6 +8,7 @@ import BranchManagement from "./components/Admin/BranchManagement";
 import AdminDashboard from "./components/Admin/AdminDashboard";
 import MovieManagement from './components/Admin/MovieManagement';
 import ItemManagement from './components/Admin/ItemManagement';
+import ComboManagement from './components/Admin/ComboManagement';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
@@ -76,6 +77,10 @@ const AppInner = () => {
         <Route 
           path="/admin/items" 
           element={isAdmin ? <ItemManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/combos" 
+          element={isAdmin ? <ComboManagement /> : <Navigate to="/home" />} 
         />
         <Route 
           path="/admin/bookings" 
