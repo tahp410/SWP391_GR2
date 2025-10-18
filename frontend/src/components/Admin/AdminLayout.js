@@ -13,7 +13,7 @@ import {
   User,
   Bell,
   Search,
-  TicketPercent,,
+  TicketPercent,
   ShoppingBag,
   Package
 } from "lucide-react";
