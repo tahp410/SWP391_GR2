@@ -9,6 +9,8 @@ import AdminDashboard from "./components/Admin/AdminDashboard";
 import MovieManagement from './components/Admin/MovieManagement';
 import ItemManagement from './components/Admin/ItemManagement';
 import ComboManagement from './components/Admin/ComboManagement';
+import TheaterManagement from './components/Admin/TheaterManagement';
+import ShowtimeManagement from './components/Admin/ShowtimeManagement';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
@@ -65,6 +67,14 @@ const AppInner = () => {
         <Route 
           path="/admin/branches" 
           element={isAdmin ? <BranchManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/theaters" 
+          element={isAdmin ? <TheaterManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/showtimes" 
+          element={isAdmin ? <ShowtimeManagement /> : <Navigate to="/home" />} 
         />
         <Route 
           path="/admin/users" 

@@ -13,6 +13,8 @@ import registerRoutes from './routes/register.js';
 import itemRoutes from "./routes/itemRoutes.js";
 import comboRoutes from "./routes/comboRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import theaterRoutes from "./routes/theaterRoutes.js";
+import showtimeRoutes from "./routes/showtimeRoutes.js";
 
 // ES modules equivalent của __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +41,8 @@ app.use('/api', registerRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/combos", comboRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/theaters", theaterRoutes);
+app.use("/api/showtimes", showtimeRoutes);
 // Route test
 app.get("/", (req, res) => {
   res.send("🚀 Backend server is running!");
