@@ -1,11 +1,12 @@
 import React from 'react';
-import { 
-  Building2, 
-  Users, 
-  Film, 
+import {
+  Building2,
+  Users,
+  Film,
   Ticket,
   TrendingUp,
-  Activity
+  Activity,
+  Gift
 } from 'lucide-react';
 
 const DashboardContent = () => {
@@ -37,6 +38,7 @@ const DashboardContent = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {/* Tổng Chi Nhánh */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -116,6 +118,20 @@ const DashboardContent = () => {
             </div>
           </div>
         </div>
+
+        {/* Voucher */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Voucher</p>
+              <p className="text-3xl font-bold text-gray-900">{dashboardStats.totalVouchers}</p>
+              <p className="text-sm text-green-600 mt-1">{dashboardStats.usedVouchers} đã sử dụng</p>
+            </div>
+            <div className="w-16 h-16 bg-pink-100 rounded-2xl flex items-center justify-center">
+              <Gift className="w-8 h-8 text-pink-600" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Charts and Activity */}
@@ -129,7 +145,7 @@ const DashboardContent = () => {
               <span className="text-sm text-green-600 font-medium">+15%</span>
             </div>
           </div>
-          
+
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center">
@@ -143,7 +159,7 @@ const DashboardContent = () => {
               </div>
               <span className="text-sm text-gray-500">10:30 AM</span>
             </div>
-            
+
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center">
                 <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
@@ -156,7 +172,7 @@ const DashboardContent = () => {
               </div>
               <span className="text-sm text-gray-500">09:15 AM</span>
             </div>
-            
+
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center">
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
@@ -175,7 +191,7 @@ const DashboardContent = () => {
         {/* Popular Branches */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Chi Nhánh Phổ Biến</h3>
-          
+
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
               <div className="flex items-center">
@@ -192,7 +208,7 @@ const DashboardContent = () => {
                 <p className="text-sm text-green-600">đặt vé</p>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
               <div className="flex items-center">
                 <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-lg flex items-center justify-center mr-3">
@@ -208,7 +224,7 @@ const DashboardContent = () => {
                 <p className="text-sm text-green-600">đặt vé</p>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
               <div className="flex items-center">
                 <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg flex items-center justify-center mr-3">
@@ -224,7 +240,7 @@ const DashboardContent = () => {
                 <p className="text-sm text-green-600">đặt vé</p>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
               <div className="flex items-center">
                 <div className="w-10 h-10 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-lg flex items-center justify-center mr-3">
@@ -247,7 +263,7 @@ const DashboardContent = () => {
       {/* Quick Actions */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Thao Tác Nhanh</h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
@@ -258,7 +274,7 @@ const DashboardContent = () => {
               <p className="text-sm text-gray-500">Tạo chi nhánh mới</p>
             </div>
           </button>
-          
+
           <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 transition-colors">
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
               <Film size={24} className="text-green-600" />
@@ -268,7 +284,7 @@ const DashboardContent = () => {
               <p className="text-sm text-gray-500">Quản lý danh sách phim</p>
             </div>
           </button>
-          
+
           <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors">
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-4">
               <Ticket size={24} className="text-purple-600" />

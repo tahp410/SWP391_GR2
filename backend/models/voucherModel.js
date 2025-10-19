@@ -20,13 +20,15 @@ const voucherSchema = mongoose.Schema(
       type: Number,
       required: true,
     },
+    // If minPurchase is 0, there is no minimum purchase required to use the voucher.
     minPurchase: {
       type: Number,
       default: 0,
-    },
+    // If maxDiscount is 0, it means there is no maximum discount limit.
     maxDiscount: {
       type: Number,
       default: 0,
+    },
     },
     startDate: {
       type: Date,
