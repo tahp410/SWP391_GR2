@@ -9,12 +9,12 @@ import {
   getShowtimesByTheater,
   getShowtimesByDateRange
 } from '../controllers/showtimeController.js';
-import { authMiddleware } from '../middleware/authMiddleware.js';
+import protect from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(authMiddleware);
+router.use(protect);
 
 // @route   GET /api/showtimes
 // @desc    Get all showtimes

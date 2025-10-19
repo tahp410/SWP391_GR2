@@ -8,12 +8,12 @@ import {
   getTheatersByBranch,
   getSeatLayoutByTheater
 } from '../controllers/theaterController.js';
-import { authMiddleware } from '../middleware/authMiddleware.js';
+import protect from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(authMiddleware);
+router.use(protect);
 
 // @route   GET /api/theaters
 // @desc    Get all theaters

@@ -1,13 +1,13 @@
-import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Building2,
-  Users,
-  Film,
-  Ticket,
-  Settings,
-  Menu,
+import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  Building2, 
+  Users, 
+  Film, 
+  Ticket, 
+  Settings, 
+  Menu, 
   X,
   LogOut,
   User,
@@ -15,28 +15,21 @@ import {
   Search,
   TicketPercent,
   ShoppingBag,
-<<<<<<< HEAD
   Package,
   Monitor,
   Calendar
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../style/adminLayout.css';
-=======
-  Package
-} from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
-import "../../style/adminLayout.css";
->>>>>>> 80ee36a12f6b9e328efe78abd7495ca0366aecf2
 
-const AdminLayout = ({ children, title = "Dashboard" }) => {
+const AdminLayout = ({ children, title = 'Dashboard' }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { user, logout } = useAuth();
-  const userInfo =
-    user || { name: "Admin", email: "admin@cine.com", role: "admin" };
+
+  const userInfo = user || { name: 'Admin', email: 'admin@cine.com', role: 'admin' };
 
   // 🔹 Logout safe
   const handleLogout = async () => {
@@ -48,69 +41,43 @@ const AdminLayout = ({ children, title = "Dashboard" }) => {
     }
   };
 
-  // 🔹 Menu items
   const menuItems = [
-<<<<<<< HEAD
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
     { id: 'branches', label: 'Chi Nhánh', icon: Building2, path: '/admin/branches' },
     { id: 'theaters', label: 'Phòng Chiếu', icon: Monitor, path: '/admin/theaters' },
     { id: 'showtimes', label: 'Lịch Chiếu', icon: Calendar, path: '/admin/showtimes' },
     { id: 'users', label: 'Người Dùng', icon: Users, path: '/admin/users' },
     { id: 'movies', label: 'Phim', icon: Film, path: '/admin/movies' },
-=======
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/admin" },
-    { id: "branches", label: "Chi Nhánh", icon: Building2, path: "/admin/branches" },
-    { id: "users", label: "Người Dùng", icon: Users, path: "/admin/users" },
-    { id: "movies", label: "Phim", icon: Film, path: "/admin/movies" },
->>>>>>> 80ee36a12f6b9e328efe78abd7495ca0366aecf2
     { id: 'items', label: 'Sản Phẩm', icon: ShoppingBag, path: '/admin/items' },
     { id: 'combos', label: 'Combo', icon: Package, path: '/admin/combos' },
-    { id: "bookings", label: "Đặt Vé", icon: Ticket, path: "/admin/bookings" },
-    { id: "vouchers", label: "Voucher", icon: TicketPercent, path: "/admin/vouchers" },
-    { id: "settings", label: "Cài Đặt", icon: Settings, path: "/admin/settings" },
+    { id: 'bookings', label: 'Đặt Vé', icon: Ticket, path: '/admin/bookings' },
+    { id: 'vouchers', label: 'Voucher', icon: TicketPercent, path: '/admin/vouchers' },
+    { id: 'settings', label: 'Cài Đặt', icon: Settings, path: '/admin/settings' }
   ];
 
-  // 🔹 Active tab highlight (support params)
+  // Get current active tab based on pathname
   const getCurrentTab = () => {
     const currentPath = location.pathname;
-    const menuItem = menuItems.find((item) =>
-      currentPath.startsWith(item.path)
-    );
-    return menuItem ? menuItem.id : "dashboard";
+    const menuItem = menuItems.find(item => item.path === currentPath);
+    return menuItem ? menuItem.id : 'dashboard';
   };
+
   const activeTab = getCurrentTab();
 
-  // 🔹 Reusable Logout Button
-  const LogoutButton = ({ className = "" }) => (
-    <button onClick={handleLogout} className={`logout-btn ${className}`}>
-      <LogOut size={16} />
-      <span>Đăng xuất</span>
-    </button>
-  );
-
-  // 🔹 Reusable User Badge
-  const UserBadge = () => (
-    <div className="user-badge">
-      <User size={16} />
-      <span>{userInfo.name}</span>
-      <span className="user-role">{userInfo.role?.toUpperCase() || "ADMIN"}</span>
-    </div>
-  );
-
-  // 🔹 Sidebar
   const Sidebar = () => (
-    <div
-      className={`admin-sidebar ${sidebarOpen ? "open" : "collapsed"}`}
-    >
-      {/* Header */}
+    <div className={`admin-sidebar ${!sidebarOpen ? 'collapsed' : ''} ${sidebarOpen ? 'open' : ''}`}>
+      {/* Sidebar Header */}
       <div className="sidebar-header">
         <h1 className="sidebar-title">Admin Panel</h1>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="sidebar-toggle">
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="sidebar-toggle"
+        >
           <X size={20} />
         </button>
       </div>
 
-      {/* Nav */}
+      {/* Navigation */}
       <nav className="sidebar-nav">
         {menuItems.map((item) => {
           const Icon = item.icon;
@@ -118,7 +85,7 @@ const AdminLayout = ({ children, title = "Dashboard" }) => {
             <button
               key={item.id}
               onClick={() => navigate(item.path)}
-              className={`nav-item ${activeTab === item.id ? "active" : ""}`}
+              className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
             >
               <Icon className="nav-icon" />
               <span>{item.label}</span>
@@ -127,7 +94,7 @@ const AdminLayout = ({ children, title = "Dashboard" }) => {
         })}
       </nav>
 
-      {/* Footer */}
+      {/* Sidebar Footer */}
       <div className="sidebar-footer">
         <div className="user-info">
           <div className="user-avatar">
@@ -138,12 +105,17 @@ const AdminLayout = ({ children, title = "Dashboard" }) => {
             <p>{userInfo.email}</p>
           </div>
         </div>
-        <LogoutButton />
+        <button
+          onClick={handleLogout}
+          className="logout-btn"
+        >
+          <LogOut size={16} />
+          <span>Đăng xuất</span>
+        </button>
       </div>
     </div>
   );
 
-  // 🔹 Header
   const Header = () => (
     <header className="admin-header">
       <div className="header-left">
@@ -155,7 +127,7 @@ const AdminLayout = ({ children, title = "Dashboard" }) => {
         </button>
         <h1 className="header-title">{title}</h1>
       </div>
-
+      
       <div className="header-right">
         {/* Search */}
         <div className="search-container">
@@ -173,11 +145,20 @@ const AdminLayout = ({ children, title = "Dashboard" }) => {
           <span className="notification-dot"></span>
         </button>
 
-        {/* User */}
-        <UserBadge />
+        {/* User Info */}
+        <div className="user-badge">
+          <User size={16} />
+          <span>{userInfo.name}</span>
+          <span className="user-role">ADMIN</span>
+        </div>
 
         {/* Logout */}
-        <LogoutButton className="header-logout" />
+        <button
+          onClick={handleLogout}
+          className="header-logout"
+        >
+          Đăng xuất
+        </button>
       </div>
     </header>
   );
@@ -187,15 +168,20 @@ const AdminLayout = ({ children, title = "Dashboard" }) => {
       {/* Sidebar */}
       <Sidebar />
 
-      {/* Main */}
-      <div className={`admin-main ${!sidebarOpen ? "sidebar-collapsed" : ""}`}>
+      {/* Main Content */}
+      <div className={`admin-main ${!sidebarOpen ? 'sidebar-collapsed' : ''}`}>
+        {/* Header */}
         <Header />
-        <div className="admin-content">{children}</div>
+
+        {/* Content Area */}
+        <div className="admin-content">
+          {children}
+        </div>
       </div>
 
-      {/* Mobile Overlay */}
+      {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <div
+        <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
