@@ -1,0 +1,652 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Plus, Edit2, Trash2, Eye, X, Clock, Film, Monitor, MapPin, DollarSign } from 'lucide-react';
+import AdminLayout from './AdminLayout';
+
+// FormField component
+const FormField = ({ label, type = "text", required, className, ...props }) => {
+  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  return (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {type === 'textarea' ? (
+        <textarea className={className || inputClass} rows="3" {...props} />
+      ) : type === 'select' ? (
+        <select className={className || inputClass} {...props}>
+          {props.children}
+        </select>
+      ) : (
+        <input type={type} className={className || inputClass} {...props} />
+      )}
+    </div>
+  );
+};
+
+const ShowtimeManagement = () => {
+  const [state, setState] = useState({
+    showtimes: [],
+    movies: [],
+    branches: [],
+    theaters: [],
+    searchTerm: '',
+    selectedBranch: '',
+    selectedTheater: '',
+    loading: true,
+    showForm: false,
+    showDetailModal: false,
+    editingShowtime: null,
+    formData: {
+      movie: '',
+      branch: '',
+      theater: '',
+      startTime: '',
+      endTime: '',
+      price: {
+        standard: '',
+        vip: '',
+        couple: ''
+      },
+      status: 'active'
+    },
+    message: { type: '', text: '' }
+  });
+
+  const API_BASE = 'http://localhost:5000/api';
+
+  const showMessage = (type, text) => setState(prev => ({ 
+    ...prev, message: { type, text } 
+  }));
+
+  const updateFormField = (field, value) => setState(prev => ({
+    ...prev, 
+    formData: { ...prev.formData, [field]: value }
+  }));
+
+  const updatePriceField = (priceType, value) => setState(prev => ({
+    ...prev,
+    formData: {
+      ...prev.formData,
+      price: { ...prev.formData.price, [priceType]: value }
+    }
+  }));
+
+  // Get token from localStorage
+  const getToken = () => localStorage.getItem('token');
+
+  // Create headers with token
+  const getHeaders = useCallback(() => {
+    const token = getToken();
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+  }, []);
+
+  useEffect(() => {
+    if (state.message.text) {
+      const timer = setTimeout(() => setState(prev => ({ 
+        ...prev, message: { type: '', text: '' } 
+      })), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [state.message.text]);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setState(prev => ({ ...prev, loading: true }));
+      const [showtimesRes, moviesRes, branchesRes, theatersRes] = await Promise.all([
+        fetch(`${API_BASE}/showtimes`, { headers: getHeaders() }),
+        fetch(`${API_BASE}/movies`, { headers: getHeaders() }),
+        fetch(`${API_BASE}/branches`, { headers: getHeaders() }),
+        fetch(`${API_BASE}/theaters`, { headers: getHeaders() })
+      ]);
+      
+      if (showtimesRes.ok && moviesRes.ok && branchesRes.ok && theatersRes.ok) {
+        const [showtimes, movies, branches, theaters] = await Promise.all([
+          showtimesRes.json(),
+          moviesRes.json(),
+          branchesRes.json(),
+          theatersRes.json()
+        ]);
+        setState(prev => ({ ...prev, showtimes, movies, branches, theaters, loading: false }));
+      } else {
+        setState(prev => ({ ...prev, loading: false }));
+        showMessage('error', 'Lỗi khi tải dữ liệu');
+      }
+    } catch (error) {
+      setState(prev => ({ ...prev, loading: false }));
+      showMessage('error', 'Lỗi khi tải dữ liệu');
+    }
+  }, [getHeaders]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Filter theaters by selected branch
+  const filteredTheaters = state.theaters.filter(theater => 
+    !state.formData.branch || theater.branch === state.formData.branch || theater.branch?._id === state.formData.branch
+  );
+
+  // Calculate end time based on movie duration and start time
+  const calculateEndTime = useCallback((startTime, movieId) => {
+    const movie = state.movies.find(m => m._id === movieId);
+    if (!movie || !movie.duration || !startTime) return '';
+    
+    const start = new Date(startTime);
+    const durationMinutes = movie.duration;
+    const end = new Date(start.getTime() + durationMinutes * 60000); // Add duration in milliseconds
+    
+    return end.toISOString().slice(0, 16); // Format for datetime-local input
+  }, [state.movies]);
+
+  // Update end time when movie or start time changes
+  useEffect(() => {
+    if (state.formData.movie && state.formData.startTime) {
+      const endTime = calculateEndTime(state.formData.startTime, state.formData.movie);
+      if (endTime) {
+        updateFormField('endTime', endTime);
+      }
+    }
+  }, [state.formData.movie, state.formData.startTime, calculateEndTime]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const { movie, branch, theater, startTime, endTime, price, status } = state.formData;
+    
+    if (!movie || !branch || !theater || !startTime || !endTime || !price.standard) {
+      return showMessage('error', 'Vui lòng điền đầy đủ thông tin bắt buộc');
+    }
+
+    const submitData = {
+      movie,
+      branch,
+      theater,
+      startTime,
+      endTime,
+      price: {
+        standard: Number(price.standard),
+        vip: Number(price.vip) || 0,
+        couple: Number(price.couple) || 0
+      },
+      status
+    };
+
+    try {
+      const url = state.editingShowtime 
+        ? `${API_BASE}/showtimes/${state.editingShowtime._id}` 
+        : `${API_BASE}/showtimes`;
+      
+      const response = await fetch(url, {
+        method: state.editingShowtime ? 'PUT' : 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(submitData),
+      });
+
+      if (response.ok) {
+        await fetchData();
+        resetForm();
+        showMessage('success', `Lịch chiếu ${state.editingShowtime ? 'cập nhật' : 'tạo'} thành công!`);
+      } else {
+        const error = await response.json();
+        showMessage('error', error.message || 'Thao tác thất bại');
+      }
+    } catch (error) {
+      showMessage('error', 'Lỗi khi lưu lịch chiếu');
+    }
+  };
+
+  const handleEdit = (showtime) => setState(prev => ({
+    ...prev, 
+    editingShowtime: showtime, 
+    showForm: true,
+    formData: { 
+      movie: showtime.movie?._id || showtime.movie || '',
+      branch: showtime.branch?._id || showtime.branch || '',
+      theater: showtime.theater?._id || showtime.theater || '',
+      startTime: new Date(showtime.startTime).toISOString().slice(0, 16),
+      endTime: new Date(showtime.endTime).toISOString().slice(0, 16),
+      price: {
+        standard: showtime.price?.standard || '',
+        vip: showtime.price?.vip || '',
+        couple: showtime.price?.couple || ''
+      },
+      status: showtime.status || 'active'
+    }
+  }));
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa lịch chiếu này?')) return;
+    try {
+      const response = await fetch(`${API_BASE}/showtimes/${id}`, { 
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      if (response.ok) {
+        await fetchData();
+        showMessage('success', 'Lịch chiếu đã xóa thành công!');
+      } else {
+        showMessage('error', 'Lỗi khi xóa lịch chiếu');
+      }
+    } catch (error) {
+      showMessage('error', 'Lỗi khi thao tác lịch chiếu');
+    }
+  };
+
+  const resetForm = () => setState(prev => ({
+    ...prev, 
+    formData: {
+      movie: '',
+      branch: '',
+      theater: '',
+      startTime: '',
+      endTime: '',
+      price: {
+        standard: '',
+        vip: '',
+        couple: ''
+      },
+      status: 'active'
+    },
+    editingShowtime: null, 
+    showForm: false
+  }));
+
+  const handleViewDetail = (showtime) => setState(prev => ({
+    ...prev, editingShowtime: showtime, showDetailModal: true
+  }));
+
+  const filteredShowtimes = state.showtimes.filter(showtime => {
+    const matchesSearch = 
+      (showtime.movie?.title || '').toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+      (showtime.theater?.name || '').toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+      (showtime.branch?.name || '').toLowerCase().includes(state.searchTerm.toLowerCase());
+    
+    const matchesBranch = !state.selectedBranch || 
+      showtime.branch?._id === state.selectedBranch || 
+      showtime.branch === state.selectedBranch;
+    
+    const matchesTheater = !state.selectedTheater || 
+      showtime.theater?._id === state.selectedTheater || 
+      showtime.theater === state.selectedTheater;
+    
+    return matchesSearch && matchesBranch && matchesTheater;
+  });
+
+  const getMovieTitle = (movieId) => {
+    const movie = state.movies.find(m => m._id === movieId);
+    return movie ? movie.title : 'N/A';
+  };
+
+  const getBranchName = (branchId) => {
+    const branch = state.branches.find(b => b._id === branchId);
+    return branch ? branch.name : 'N/A';
+  };
+
+  const getTheaterName = (theaterId) => {
+    const theater = state.theaters.find(t => t._id === theaterId);
+    return theater ? theater.name : 'N/A';
+  };
+
+  const formatDateTime = (dateTime) => {
+    return new Date(dateTime).toLocaleString('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getStatusColor = (status) => {
+    const colorMap = {
+      active: 'bg-green-100 text-green-800',
+      completed: 'bg-blue-100 text-blue-800',
+      cancelled: 'bg-red-100 text-red-800'
+    };
+    return colorMap[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusText = (status) => {
+    const textMap = {
+      active: 'Đang chiếu',
+      completed: 'Đã hoàn thành',
+      cancelled: 'Đã hủy'
+    };
+    return textMap[status] || status;
+  };
+
+  if (state.loading) {
+    return (
+      <AdminLayout title="Quản Lý Lịch Chiếu">
+        <div className="p-6">
+          <div className="text-center py-12 text-gray-500">Đang tải danh sách lịch chiếu...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  return (
+    <AdminLayout title="Quản Lý Lịch Chiếu">
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Quản Lý Lịch Chiếu</h1>
+          <p className="text-gray-600">Quản lý lịch chiếu phim tại các phòng chiếu</p>
+        </div>
+
+        {state.message.text && (
+          <div className={`mb-4 p-4 rounded-lg ${
+            state.message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          }`}>
+            {state.message.text}
+          </div>
+        )}
+
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Tìm kiếm phim, phòng chiếu..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={state.searchTerm}
+                onChange={(e) => setState(prev => ({ ...prev, searchTerm: e.target.value }))}
+              />
+            </div>
+            
+            <select
+              value={state.selectedBranch}
+              onChange={(e) => setState(prev => ({ ...prev, selectedBranch: e.target.value, selectedTheater: '' }))}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Tất cả chi nhánh</option>
+              {state.branches.map((branch) => (
+                <option key={branch._id} value={branch._id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={state.selectedTheater}
+              onChange={(e) => setState(prev => ({ ...prev, selectedTheater: e.target.value }))}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={!state.selectedBranch}
+            >
+              <option value="">Tất cả phòng chiếu</option>
+              {state.theaters
+                .filter(theater => theater.branch === state.selectedBranch || theater.branch?._id === state.selectedBranch)
+                .map((theater) => (
+                  <option key={theater._id} value={theater._id}>
+                    {theater.name}
+                  </option>
+                ))}
+            </select>
+
+            <button
+              onClick={() => setState(prev => ({ ...prev, showForm: true }))}
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <Plus size={20} />
+              Thêm Lịch Chiếu
+            </button>
+          </div>
+        </div>
+
+        {/* Add/Edit Modal */}
+        {state.showForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">
+                    {state.editingShowtime ? "Chỉnh Sửa Lịch Chiếu" : "Thêm Lịch Chiếu Mới"}
+                  </h2>
+                  <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      label="Phim"
+                      type="select"
+                      required
+                      value={state.formData.movie}
+                      onChange={(e) => updateFormField('movie', e.target.value)}
+                    >
+                      <option value="">Chọn phim</option>
+                      {state.movies.filter(movie => movie.status === 'active').map((movie) => (
+                        <option key={movie._id} value={movie._id}>
+                          {movie.title} ({movie.duration} phút)
+                        </option>
+                      ))}
+                    </FormField>
+
+                    <FormField
+                      label="Chi nhánh"
+                      type="select"
+                      required
+                      value={state.formData.branch}
+                      onChange={(e) => {
+                        updateFormField('branch', e.target.value);
+                        updateFormField('theater', ''); // Reset theater when branch changes
+                      }}
+                    >
+                      <option value="">Chọn chi nhánh</option>
+                      {state.branches.map((branch) => (
+                        <option key={branch._id} value={branch._id}>
+                          {branch.name}
+                        </option>
+                      ))}
+                    </FormField>
+                  </div>
+
+                  <FormField
+                    label="Phòng chiếu"
+                    type="select"
+                    required
+                    value={state.formData.theater}
+                    onChange={(e) => updateFormField('theater', e.target.value)}
+                    disabled={!state.formData.branch}
+                  >
+                    <option value="">Chọn phòng chiếu</option>
+                    {filteredTheaters.map((theater) => (
+                      <option key={theater._id} value={theater._id}>
+                        {theater.name}
+                      </option>
+                    ))}
+                  </FormField>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      label="Thời gian bắt đầu"
+                      type="datetime-local"
+                      required
+                      value={state.formData.startTime}
+                      onChange={(e) => updateFormField('startTime', e.target.value)}
+                    />
+
+                    <FormField
+                      label="Thời gian kết thúc"
+                      type="datetime-local"
+                      required
+                      value={state.formData.endTime}
+                      onChange={(e) => updateFormField('endTime', e.target.value)}
+                      readOnly
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Giá vé <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Ghế thường (VNĐ)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          required
+                          value={state.formData.price.standard}
+                          onChange={(e) => updatePriceField('standard', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Ghế VIP (VNĐ)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={state.formData.price.vip}
+                          onChange={(e) => updatePriceField('vip', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Ghế đôi (VNĐ)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={state.formData.price.couple}
+                          onChange={(e) => updatePriceField('couple', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <FormField
+                    label="Trạng thái"
+                    type="select"
+                    value={state.formData.status}
+                    onChange={(e) => updateFormField('status', e.target.value)}
+                  >
+                    <option value="active">Đang chiếu</option>
+                    <option value="completed">Đã hoàn thành</option>
+                    <option value="cancelled">Đã hủy</option>
+                  </FormField>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      {state.editingShowtime ? "Cập nhật" : "Tạo lịch chiếu"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Showtimes Grid */}
+        <div className="grid grid-cols-1 gap-4">
+          {filteredShowtimes.map((showtime) => (
+            <div key={showtime._id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-4">
+                    <Film size={24} className="text-blue-600" />
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800">
+                        {getMovieTitle(showtime.movie?._id || showtime.movie)}
+                      </h3>
+                      <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                        <span className="flex items-center gap-1">
+                          <MapPin size={14} />
+                          {getBranchName(showtime.branch?._id || showtime.branch)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Monitor size={14} />
+                          {getTheaterName(showtime.theater?._id || showtime.theater)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className={`px-3 py-1 text-sm rounded-full ${getStatusColor(showtime.status)}`}>
+                    {getStatusText(showtime.status)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div>
+                    <span className="text-sm text-gray-600 flex items-center gap-1">
+                      <Clock size={14} />
+                      Bắt đầu
+                    </span>
+                    <p className="font-medium">{formatDateTime(showtime.startTime)}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600 flex items-center gap-1">
+                      <Clock size={14} />
+                      Kết thúc
+                    </span>
+                    <p className="font-medium">{formatDateTime(showtime.endTime)}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600 flex items-center gap-1">
+                      <DollarSign size={14} />
+                      Giá thường
+                    </span>
+                    <p className="font-medium text-green-600">{showtime.price?.standard?.toLocaleString()} VNĐ</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600 flex items-center gap-1">
+                      <DollarSign size={14} />
+                      Giá VIP
+                    </span>
+                    <p className="font-medium text-yellow-600">{showtime.price?.vip?.toLocaleString() || 0} VNĐ</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleViewDetail(showtime)}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <Eye size={16} />
+                    Chi tiết
+                  </button>
+                  <button
+                    onClick={() => handleEdit(showtime)}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100 transition-colors"
+                  >
+                    <Edit2 size={16} />
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => handleDelete(showtime._id)}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                  >
+                    <Trash2 size={16} />
+                    Xóa
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {filteredShowtimes.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              {state.searchTerm || state.selectedBranch || state.selectedTheater ? 
+                "Không tìm thấy lịch chiếu nào phù hợp" : 
+                "Chưa có lịch chiếu nào"}
+            </div>
+          )}
+        </div>
+      </div>
+    </AdminLayout>
+  );
+};
+
+export default ShowtimeManagement;

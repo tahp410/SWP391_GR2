@@ -2,6 +2,27 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, Edit2, Trash2, Eye, X, Coffee, ShoppingBag, Upload, Link } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 
+// FormField component moved outside to prevent recreation
+const FormField = ({ label, type = "text", required, className, ...props }) => {
+  const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  return (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {type === 'textarea' ? (
+        <textarea className={className || inputClass} rows="3" {...props} />
+      ) : type === 'select' ? (
+        <select className={className || inputClass} {...props}>
+          {props.children}
+        </select>
+      ) : (
+        <input type={type} className={className || inputClass} {...props} />
+      )}
+    </div>
+  );
+};
+
 const ItemManagement = () => {
   const [state, setState] = useState({
     items: [], 
@@ -19,6 +40,16 @@ const ItemManagement = () => {
 
   const API_BASE = 'http://localhost:5000/api';
   
+  const showMessage = (type, text) => setState(prev => ({ 
+    ...prev, message: { type, text } 
+  }));
+
+  const updateFormField = (field, value) => setState(prev => ({
+    ...prev, 
+    formData: { ...prev.formData, [field]: value },
+    ...(field === 'image_url' && value ? { imagePreview: value } : {})
+  }));
+  
   // Get token from localStorage
   const getToken = () => {
     return localStorage.getItem('token');
@@ -32,10 +63,6 @@ const ItemManagement = () => {
       ...(token && { 'Authorization': `Bearer ${token}` })
     };
   }, []);
-  
-  const showMessage = (type, text) => setState(prev => ({ 
-    ...prev, message: { type, text } 
-  }));
 
   const uploadImage = async (file) => {
     const formData = new FormData();
@@ -195,12 +222,6 @@ const ItemManagement = () => {
     ...prev, editingItem: item, showDetailModal: true
   }));
 
-  const updateFormField = useCallback((field, value) => setState(prev => ({
-    ...prev, 
-    formData: { ...prev.formData, [field]: value },
-    ...(field === 'image_url' && value ? { imagePreview: value } : {})
-  })), []);
-
   const filteredItems = state.items.filter(item => 
     (item.name || '').toLowerCase().includes(state.searchTerm.toLowerCase()) ||
     (item.type || '').toLowerCase().includes(state.searchTerm.toLowerCase())
@@ -251,34 +272,6 @@ const ItemManagement = () => {
     };
     return colorMap[size] || colorMap.default;
   };
-
-  const FormField = ({ label, type = 'text', required, ...props }) => (
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      {type === 'textarea' ? (
-        <textarea 
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-          rows="3" 
-          {...props} 
-        />
-      ) : type === 'select' ? (
-        <select 
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-          {...props}
-        >
-          {props.children}
-        </select>
-      ) : (
-        <input 
-          type={type}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          {...props} 
-        />
-      )}
-    </div>
-  );
 
   return (
     <AdminLayout title="Quản Lý Sản Phẩm">
@@ -469,28 +462,22 @@ const ItemManagement = () => {
                   
                   <FormField
                     label="Giá bán (VNĐ)"
-                    type="text"
-                    pattern="[0-9]*"
+                    type="number"
                     required
+                    min="0"
                     placeholder="Nhập giá bán"
                     value={state.formData.price}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9]/g, '');
-                      updateFormField('price', value);
-                    }}
+                    onChange={(e) => updateFormField('price', e.target.value)}
                   />
                   
                   <FormField
                     label="Giá vốn (VNĐ)"
-                    type="text"
-                    pattern="[0-9]*"
+                    type="number"
                     required
+                    min="0"
                     placeholder="Nhập giá vốn"
                     value={state.formData.cost}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9]/g, '');
-                      updateFormField('cost', value);
-                    }}
+                    onChange={(e) => updateFormField('cost', e.target.value)}
                   />
 
                   {/* Image Upload Section */}
@@ -530,7 +517,11 @@ const ItemManagement = () => {
                       <input
                         type="url"
                         value={state.formData.image_url}
-                        onChange={(e) => updateFormField('image_url', e.target.value)}
+                        onChange={(e) => setState(prev => ({
+                          ...prev,
+                          formData: { ...prev.formData, image_url: e.target.value },
+                          imagePreview: e.target.value
+                        }))}
                         placeholder="https://example.com/image.jpg"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />

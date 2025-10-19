@@ -14,7 +14,9 @@ import {
   Bell,
   Search,
   ShoppingBag,
-  Package
+  Package,
+  Monitor,
+  Calendar
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../style/adminLayout.css';
@@ -36,6 +38,8 @@ const AdminLayout = ({ children, title = 'Dashboard' }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
     { id: 'branches', label: 'Chi Nhánh', icon: Building2, path: '/admin/branches' },
+    { id: 'theaters', label: 'Phòng Chiếu', icon: Monitor, path: '/admin/theaters' },
+    { id: 'showtimes', label: 'Lịch Chiếu', icon: Calendar, path: '/admin/showtimes' },
     { id: 'users', label: 'Người Dùng', icon: Users, path: '/admin/users' },
     { id: 'movies', label: 'Phim', icon: Film, path: '/admin/movies' },
     { id: 'items', label: 'Sản Phẩm', icon: ShoppingBag, path: '/admin/items' },
