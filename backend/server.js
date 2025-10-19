@@ -8,6 +8,7 @@ import connectDB from "./config/db.js";
 import User from "./models/userModel.js";
 import userRoutes from './routes/userRoutes.js';
 import branchRoutes from './routes/branchRoutes.js';
+import voucherRoutes from './routes/voucherRoutes.js';
 import movieRoutes from './routes/movieRoutes.js';
 import registerRoutes from './routes/register.js';
 import itemRoutes from "./routes/itemRoutes.js";
@@ -36,6 +37,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/branches', branchRoutes);
+app.use('/api/vouchers', voucherRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api', registerRoutes);
 app.use("/api/items", itemRoutes);
@@ -52,4 +54,3 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Server is running on http://localhost:${PORT}`);
 });
-
