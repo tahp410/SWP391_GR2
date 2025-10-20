@@ -24,7 +24,7 @@ const Profile = () => {
     phone: '',
     province: '',
     city: '',
-    sex: 'Other',
+    gender: 'other',
   });
   const [formData, setFormData] = useState({ ...profileData });
   const [isEditing, setIsEditing] = useState(false);
@@ -67,7 +67,7 @@ const Profile = () => {
           phone: data.phone ?? '',
           province: data.province ?? '',
           city: data.city ?? '',
-          sex: data.sex ?? 'Other',
+          gender: data.gender ?? 'other',
         };
 
         setProfileData(next);
@@ -223,15 +223,18 @@ const handleUpdateProfile = async () => {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Sex</label>
-                <input
-                  type="text"
+                <label className="form-label">Gender</label>
+                <select
                   className="form-input"
-                  value={formData.sex}
-                  onChange={(e) => handleInputChange('sex', e.target.value)}
+                  value={formData.gender}
+                  onChange={(e) => handleInputChange('gender', e.target.value)}
                   disabled={!isEditing}
                   style={isEditing ? { color: '#000', background: '#fff', opacity: 1 } : {}}
-                />
+                >
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
               </div>
 
             </div>

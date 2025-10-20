@@ -115,78 +115,78 @@ export const createMovie = async (req, res) => {
 };
 export const updateMovie = async (req, res) => {
   try {
-    try {
-      const {
-        title,
-        description,
-        duration,
-        genre,
-        releaseDate,
-        endDate,
-        language,
-        director,
-        cast,
-        poster,
-        trailer,
-        status,
-        hotness,
-        rating,
-      } = req.body;
-      if (
-        !title ||
-        !description ||
-        !duration ||
-        !genre ||
-        !releaseDate ||
-        !endDate ||
-        !language ||
-        !director ||
-        !cast ||
-        !poster ||
-        !status ||
-        !hotness ||
-        !rating
-      ) {
-        return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
-      }
-      const updateData = {
-        title: title.trim(),
-        description: description.trim(),
-        duration,
-        genre: Array.isArray(genre)
-          ? genre
-          : genre
-              .split(",")
-              .map((g) => g.trim())
-              .filter((g) => g),
-        releaseDate: new Date(releaseDate),
-        endDate: new Date(endDate),
-        language: language.trim(),
-        director: director.trim(),
-        cast: Array.isArray(cast)
-          ? cast
-          : cast
-              .split(",")
-              .map((c) => c.trim())
-              .filter((c) => c),
-        poster: poster.trim(),
-        trailer: trailer ? trailer.trim() : "",
-        status: status !== undefined ? status : "coming-soon",
-        hotness,
-        rating,
-      };
-      const movie = await Movie.findByIdAndUpdate(req.params.id, updateData, {
-        new: true,
-        runValidators: true,
-      });
-      if (!movie) {
-        return res.status(404).json({ message: "Không tìm thấy phim" });
-      }
-      res.json(movie);
-    } catch (error) {
-      console.error("Update movie error:", error);
-      res.status(500).json({ message: "Lỗi server", error: error.message });
+    const {
+      title,
+      description,
+      duration,
+      genre,
+      releaseDate,
+      endDate,
+      language,
+      director,
+      cast,
+      poster,
+      trailer,
+      status,
+      hotness,
+      rating,
+    } = req.body;
+    
+    if (
+      !title ||
+      !description ||
+      !duration ||
+      !genre ||
+      !releaseDate ||
+      !endDate ||
+      !language ||
+      !director ||
+      !cast ||
+      !poster ||
+      !status ||
+      !hotness ||
+      !rating
+    ) {
+      return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
     }
+    
+    const updateData = {
+      title: title.trim(),
+      description: description.trim(),
+      duration,
+      genre: Array.isArray(genre)
+        ? genre
+        : genre
+            .split(",")
+            .map((g) => g.trim())
+            .filter((g) => g),
+      releaseDate: new Date(releaseDate),
+      endDate: new Date(endDate),
+      language: language.trim(),
+      director: director.trim(),
+      cast: Array.isArray(cast)
+        ? cast
+        : cast
+            .split(",")
+            .map((c) => c.trim())
+            .filter((c) => c),
+      poster: poster.trim(),
+      trailer: trailer ? trailer.trim() : "",
+      status: status !== undefined ? status : "coming-soon",
+      hotness,
+      rating,
+    };
+    
+    const movie = await Movie.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+    
+    if (!movie) {
+      return res.status(404).json({ message: "Không tìm thấy phim" });
+    }
+    
+    res.json(movie);
   } catch (error) {
     console.error("Update movie error:", error);
     res.status(500).json({ message: "Lỗi server", error: error.message });

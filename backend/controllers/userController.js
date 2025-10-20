@@ -210,3 +210,55 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ message: "Lỗi server" });
   }
 };
+
+/**
+ * @desc    Lấy thông tin profile của user
+ * @route   GET /api/users/profile
+ * @access  Private
+ */
+export const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error("Get profile error:", error);
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};
+
+/**
+ * @desc    Cập nhật thông tin profile của user
+ * @route   PUT /api/users/profile
+ * @access  Private
+ */
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, email, dob, phone, province, city, gender } = req.body;
+    
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    // Cập nhật thông tin
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (dob) user.dob = dob;
+    if (phone) user.phone = phone;
+    if (province) user.province = province;
+    if (city) user.city = city;
+    if (gender) user.gender = gender;
+
+    await user.save();
+
+    // Trả về user không có password
+    const userResponse = await User.findById(user._id).select('-password');
+    res.json(userResponse);
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};

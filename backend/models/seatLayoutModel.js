@@ -14,7 +14,8 @@ const seatLayoutSchema = mongoose.Schema(
     theater: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Theater",
-      required: true,
+      required: false,
+      default: null,
     },
     rows: {
       type: Number,

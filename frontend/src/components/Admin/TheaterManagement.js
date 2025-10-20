@@ -23,19 +23,110 @@ const FormField = ({ label, type = "text", required, className, ...props }) => {
   );
 };
 
+// Theater Card Component
+const TheaterCard = ({ theater, onViewDetail, onViewSchedule, onEdit, onDelete }) => (
+  <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+    <div className="p-6">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Monitor size={24} className="text-blue-600" />
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800">{theater.name}</h3>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-4 space-y-2">
+        {theater.seatLayout && (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Số hàng ghế:</span>
+              <span className="text-sm font-medium">{theater.seatLayout.rows || 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Ghế mỗi hàng:</span>
+              <span className="text-sm font-medium">{theater.seatLayout.seatsPerRow || 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Tổng ghế:</span>
+              <span className="text-sm font-bold text-blue-600">
+                {(theater.seatLayout.rows || 0) * (theater.seatLayout.seatsPerRow || 0)} ghế
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Hàng VIP:</span>
+              <span className="text-sm font-medium text-yellow-600">
+                {(theater.seatLayout.vipRows || []).length} hàng
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Ghế đôi:</span>
+              <span className="text-sm font-medium text-pink-600">
+                {(theater.seatLayout.coupleSeats || []).length} cặp
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => onViewDetail(theater)}
+          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+        >
+          <Eye size={16} />
+          Xem
+        </button>
+        <button
+          onClick={() => onViewSchedule(theater)}
+          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
+        >
+          <Calendar size={16} />
+          Lịch
+        </button>
+        <button
+          onClick={() => onEdit(theater)}
+          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100 transition-colors"
+        >
+          <Edit2 size={16} />
+          Sửa
+        </button>
+        <button
+          onClick={() => onDelete(theater._id)}
+          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+        >
+          <Trash2 size={16} />
+          Xóa
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // Seat Layout Designer Component
 const SeatLayoutDesigner = ({ layout, onLayoutChange, theater }) => {
   const [showDesigner, setShowDesigner] = useState(false);
+  const [editMode, setEditMode] = useState('disable'); // 'disable', 'couple'
+  const [selectedCoupleStart, setSelectedCoupleStart] = useState(null);
   
   const updateLayout = (field, value) => {
-    onLayoutChange({
+    const newLayout = {
       ...layout,
       [field]: value
-    });
+    };
+    
+    // Auto-generate rowLabels when rows change
+    if (field === 'rows' && value > 0) {
+      newLayout.rowLabels = Array.from({length: value}, (_, i) => String.fromCharCode(65 + i));
+    }
+    
+    onLayoutChange(newLayout);
   };
 
   const toggleVipRow = (rowLabel) => {
-    const vipRows = layout.vipRows || [];
+    if (!rowLabel) return; // Prevent adding null/undefined
+    
+    const vipRows = (layout.vipRows || []).filter(r => r !== null && r !== undefined); // Clean existing nulls
     const newVipRows = vipRows.includes(rowLabel)
       ? vipRows.filter(r => r !== rowLabel)
       : [...vipRows, rowLabel];
@@ -53,11 +144,66 @@ const SeatLayoutDesigner = ({ layout, onLayoutChange, theater }) => {
     updateLayout('disabledSeats', newDisabledSeats);
   };
 
+  const toggleCoupleSeat = (row, number) => {
+    const coupleSeats = layout.coupleSeats || [];
+    
+    // Check if this seat is already in a couple
+    const existingCouple = coupleSeats.find(c => 
+      c.row === row && number >= c.startSeat && number <= c.endSeat
+    );
+    
+    if (existingCouple) {
+      // Remove the couple
+      const newCoupleSeats = coupleSeats.filter(c => 
+        !(c.row === row && c.startSeat === existingCouple.startSeat)
+      );
+      updateLayout('coupleSeats', newCoupleSeats);
+      setSelectedCoupleStart(null);
+      return;
+    }
+
+    if (!selectedCoupleStart) {
+      // First seat selected
+      setSelectedCoupleStart({ row, number });
+    } else {
+      // Second seat selected
+      if (selectedCoupleStart.row === row && Math.abs(selectedCoupleStart.number - number) === 1) {
+        // Valid couple (same row, adjacent seats)
+        const newCouple = {
+          row,
+          startSeat: Math.min(selectedCoupleStart.number, number),
+          endSeat: Math.max(selectedCoupleStart.number, number)
+        };
+        updateLayout('coupleSeats', [...coupleSeats, newCouple]);
+      }
+      setSelectedCoupleStart(null);
+    }
+  };
+
+  const handleSeatClick = (row, number) => {
+    if (editMode === 'disable') {
+      toggleDisabledSeat(row, number);
+    } else if (editMode === 'couple') {
+      toggleCoupleSeat(row, number);
+    }
+  };
+
+  const isCoupleSeat = (rowLabel, seatNumber) => {
+    const coupleSeats = layout.coupleSeats || [];
+    return coupleSeats.find(c => 
+      c.row === rowLabel && seatNumber >= c.startSeat && seatNumber <= c.endSeat
+    );
+  };
+
   const getSeatClass = (rowLabel, seatNumber) => {
     const isVip = (layout.vipRows || []).includes(rowLabel);
     const isDisabled = (layout.disabledSeats || []).find(s => s.row === rowLabel && s.number === seatNumber);
+    const isCouple = isCoupleSeat(rowLabel, seatNumber);
+    const isSelected = selectedCoupleStart?.row === rowLabel && selectedCoupleStart?.number === seatNumber;
     
     if (isDisabled) return 'bg-gray-400 cursor-not-allowed';
+    if (isCouple) return 'bg-pink-500 hover:bg-pink-600 cursor-pointer';
+    if (isSelected) return 'bg-green-500 border-2 border-green-700 cursor-pointer';
     if (isVip) return 'bg-yellow-400 hover:bg-yellow-500 cursor-pointer';
     return 'bg-blue-400 hover:bg-blue-500 cursor-pointer';
   };
@@ -66,19 +212,32 @@ const SeatLayoutDesigner = ({ layout, onLayoutChange, theater }) => {
     if (!layout.rows || !layout.seatsPerRow) return null;
 
     const rows = [];
-    const rowLabels = layout.rowLabels || Array.from({length: layout.rows}, (_, i) => String.fromCharCode(65 + i));
+    // Generate row labels if empty or undefined
+    const rowLabels = (layout.rowLabels && layout.rowLabels.length > 0) 
+      ? layout.rowLabels 
+      : Array.from({length: layout.rows}, (_, i) => String.fromCharCode(65 + i));
 
     for (let i = 0; i < layout.rows; i++) {
       const rowLabel = rowLabels[i];
+      if (!rowLabel) continue; // Skip if rowLabel is undefined
+      
       const seats = [];
       
       for (let j = 1; j <= layout.seatsPerRow; j++) {
+        const isCouple = isCoupleSeat(rowLabel, j);
         seats.push(
           <button
             key={`${rowLabel}-${j}`}
-            className={`w-6 h-6 m-0.5 rounded text-xs text-white ${getSeatClass(rowLabel, j)}`}
-            onClick={() => toggleDisabledSeat(rowLabel, j)}
-            title={`${rowLabel}${j} - Click để toggle ghế`}
+            type="button"
+            className={`w-6 h-6 m-0.5 text-xs text-white ${getSeatClass(rowLabel, j)} ${
+              isCouple ? 'rounded-lg' : 'rounded'
+            }`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSeatClick(rowLabel, j);
+            }}
+            title={`${rowLabel}${j} - ${editMode === 'couple' ? 'Click để tạo ghế đôi' : 'Click để toggle ghế'}`}
           >
             {j}
           </button>
@@ -86,14 +245,19 @@ const SeatLayoutDesigner = ({ layout, onLayoutChange, theater }) => {
       }
       
       rows.push(
-        <div key={rowLabel} className="flex items-center mb-1">
+        <div key={`row-${i}-${rowLabel}`} className="flex items-center mb-1">
           <button
+            type="button"
             className={`w-8 h-6 mr-2 rounded text-xs font-bold border-2 ${
               (layout.vipRows || []).includes(rowLabel)
                 ? 'bg-yellow-100 border-yellow-400 text-yellow-800'
                 : 'bg-gray-100 border-gray-400 text-gray-800'
             }`}
-            onClick={() => toggleVipRow(rowLabel)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleVipRow(rowLabel);
+            }}
             title="Click để toggle hàng VIP"
           >
             {rowLabel}
@@ -113,19 +277,66 @@ const SeatLayoutDesigner = ({ layout, onLayoutChange, theater }) => {
         <div className="text-center">
           {rows}
         </div>
-        <div className="mt-4 flex justify-center gap-4 text-xs">
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-blue-400 rounded"></div>
-            <span>Ghế thường</span>
+        <div className="mt-4 space-y-3">
+          <div className="flex justify-center gap-4 text-xs">
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-blue-400 rounded"></div>
+              <span>Ghế thường</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-yellow-400 rounded"></div>
+              <span>Ghế VIP</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-pink-500 rounded-lg"></div>
+              <span>Ghế đôi</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-gray-400 rounded"></div>
+              <span>Ghế tắt</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-yellow-400 rounded"></div>
-            <span>Ghế VIP</span>
+          
+          <div className="flex justify-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => { 
+                e.preventDefault();
+                e.stopPropagation();
+                setEditMode('disable'); 
+                setSelectedCoupleStart(null); 
+              }}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                editMode === 'disable' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              🚫 Tắt ghế
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { 
+                e.preventDefault();
+                e.stopPropagation();
+                setEditMode('couple'); 
+                setSelectedCoupleStart(null); 
+              }}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                editMode === 'couple' 
+                  ? 'bg-pink-600 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              💑 Tạo ghế đôi
+            </button>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-gray-400 rounded"></div>
-            <span>Ghế tắt</span>
-          </div>
+          
+          {editMode === 'couple' && selectedCoupleStart && (
+            <div className="text-center text-xs text-blue-600 font-medium">
+              ✓ Đã chọn ghế {selectedCoupleStart.row}{selectedCoupleStart.number}. Click ghế kế bên để tạo cặp.
+            </div>
+          )}
         </div>
       </div>
     );
@@ -137,7 +348,11 @@ const SeatLayoutDesigner = ({ layout, onLayoutChange, theater }) => {
         <h3 className="text-lg font-semibold">Sơ đồ ghế ngồi</h3>
         <button
           type="button"
-          onClick={() => setShowDesigner(!showDesigner)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setShowDesigner(!showDesigner);
+          }}
           className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Settings size={16} />
@@ -172,23 +387,21 @@ const SeatLayoutDesigner = ({ layout, onLayoutChange, theater }) => {
             onChange={(e) => updateLayout('name', e.target.value)}
             placeholder="VD: Layout Standard, Layout VIP..."
           />
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+            <h4 className="font-semibold text-blue-900 mb-2">📝 Hướng dẫn:</h4>
+            <ul className="space-y-1 text-blue-800">
+              <li>• Click vào <span className="font-bold">chữ hàng (A, B, C...)</span> để chuyển đổi hàng VIP</li>
+              <li>• Chọn mode <span className="font-bold">"🚫 Tắt ghế"</span>, click ghế để vô hiệu hóa/kích hoạt ghế</li>
+              <li>• Chọn mode <span className="font-bold">"💑 Tạo ghế đôi"</span>, click 2 ghế kế bên để tạo cặp</li>
+              <li>• Ghế VIP sẽ có giá cao hơn ghế thường</li>
+              <li>• Ghế đôi có thể đặt bởi 1 người (giá = 2 ghế)</li>
+            </ul>
+          </div>
         </div>
       )}
 
       {layout.rows && layout.seatsPerRow && renderSeatLayout()}
-      
-      {showDesigner && (
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Hướng dẫn:</strong>
-          </p>
-          <ul className="text-sm text-blue-700 mt-1 space-y-1">
-            <li>• Click vào chữ hàng (A, B, C...) để chuyển đổi hàng VIP</li>
-            <li>• Click vào số ghế để vô hiệu hóa/kích hoạt ghế</li>
-            <li>• Ghế VIP sẽ có giá cao hơn ghế thường</li>
-          </ul>
-        </div>
-      )}
     </div>
   );
 };
@@ -198,6 +411,7 @@ const TheaterManagement = () => {
     theaters: [],
     branches: [],
     searchTerm: '',
+    selectedBranch: '', // Thêm state để lọc theo chi nhánh
     loading: true,
     showForm: false,
     showDetailModal: false,
@@ -210,9 +424,10 @@ const TheaterManagement = () => {
         name: '',
         rows: 8,
         seatsPerRow: 12,
-        rowLabels: [],
+        rowLabels: Array.from({length: 8}, (_, i) => String.fromCharCode(65 + i)),
         vipRows: [],
-        disabledSeats: []
+        disabledSeats: [],
+        coupleSeats: []
       }
     },
     message: { type: '', text: '' }
@@ -326,23 +541,38 @@ const TheaterManagement = () => {
     }
   };
 
-  const handleEdit = (theater) => setState(prev => ({
-    ...prev, 
-    editingTheater: theater, 
-    showForm: true,
-    formData: { 
-      name: theater.name || '',
-      branch: theater.branch?._id || theater.branch || '',
-      seatLayout: theater.seatLayout || {
-        name: '',
-        rows: 8,
-        seatsPerRow: 12,
-        rowLabels: [],
-        vipRows: [],
-        disabledSeats: []
+  const handleEdit = (theater) => {
+    console.log('Editing theater:', theater);
+    
+    const rows = theater.seatLayout?.rows || 8;
+    const rowLabels = (theater.seatLayout?.rowLabels && theater.seatLayout.rowLabels.length > 0)
+      ? theater.seatLayout.rowLabels
+      : Array.from({length: rows}, (_, i) => String.fromCharCode(65 + i));
+    
+    // Clean vipRows to remove null/undefined
+    const vipRows = (theater.seatLayout?.vipRows || []).filter(r => r !== null && r !== undefined);
+    
+    setState(prev => ({
+      ...prev, 
+      editingTheater: theater, 
+      showForm: true,
+      formData: { 
+        name: theater.name || '',
+        branch: theater.branch?._id || theater.branch || '',
+        seatLayout: {
+          name: theater.seatLayout?.name || '',
+          rows: rows,
+          seatsPerRow: theater.seatLayout?.seatsPerRow || 12,
+          rowLabels: rowLabels,
+          vipRows: vipRows,
+          disabledSeats: theater.seatLayout?.disabledSeats || [],
+          coupleSeats: theater.seatLayout?.coupleSeats || [],
+          aisleAfterColumns: theater.seatLayout?.aisleAfterColumns || [],
+          screenPosition: theater.seatLayout?.screenPosition || { x: 0, y: 0, width: 100 }
+        }
       }
-    }
-  }));
+    }));
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa phòng chiếu này?')) return;
@@ -371,9 +601,10 @@ const TheaterManagement = () => {
         name: '',
         rows: 8,
         seatsPerRow: 12,
-        rowLabels: [],
+        rowLabels: Array.from({length: 8}, (_, i) => String.fromCharCode(65 + i)),
         vipRows: [],
-        disabledSeats: []
+        disabledSeats: [],
+        coupleSeats: []
       }
     },
     editingTheater: null, 
@@ -388,10 +619,21 @@ const TheaterManagement = () => {
     ...prev, editingTheater: theater, showScheduleModal: true
   }));
 
-  const filteredTheaters = state.theaters.filter(theater => 
-    (theater.name || '').toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-    (theater.branch?.name || '').toLowerCase().includes(state.searchTerm.toLowerCase())
-  );
+  const closeModal = (modalType) => setState(prev => ({
+    ...prev, [modalType]: false
+  }));
+
+  const filteredTheaters = state.theaters.filter(theater => {
+    const matchesSearch = 
+      (theater.name || '').toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+      (theater.branch?.name || '').toLowerCase().includes(state.searchTerm.toLowerCase());
+    
+    const matchesBranch = !state.selectedBranch || 
+      theater.branch?._id === state.selectedBranch || 
+      theater.branch === state.selectedBranch;
+    
+    return matchesSearch && matchesBranch;
+  });
 
   const getBranchName = (branchId) => {
     const branch = state.branches.find(b => b._id === branchId);
@@ -425,24 +667,65 @@ const TheaterManagement = () => {
         )}
 
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4 justify-between">
-            <div className="relative flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div className="relative md:col-span-5">
               <Search className="absolute left-3 top-3 text-gray-400" size={20} />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo tên phòng hoặc chi nhánh..."
+                placeholder="Tìm kiếm theo tên phòng chiếu..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={state.searchTerm}
                 onChange={(e) => setState(prev => ({ ...prev, searchTerm: e.target.value }))}
               />
             </div>
+            
+            <div className="relative md:col-span-4">
+              <MapPin className="absolute left-3 top-3 text-gray-400" size={20} />
+              <select
+                value={state.selectedBranch}
+                onChange={(e) => setState(prev => ({ ...prev, selectedBranch: e.target.value }))}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer"
+              >
+                <option value="">🎬 Tất cả chi nhánh</option>
+                {state.branches.map((branch) => (
+                  <option key={branch._id} value={branch._id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button
               onClick={() => setState(prev => ({ ...prev, showForm: true }))}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              className="md:col-span-3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
               <Plus size={20} />
               Thêm Phòng Chiếu
             </button>
+          </div>
+          
+          {/* Stats Summary */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-blue-600">{state.theaters.length}</p>
+                <p className="text-sm text-gray-600">Tổng phòng chiếu</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">{filteredTheaters.length}</p>
+                <p className="text-sm text-gray-600">Đang hiển thị</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-purple-600">{state.branches.length}</p>
+                <p className="text-sm text-gray-600">Chi nhánh</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-orange-600">
+                  {state.theaters.reduce((total, t) => total + ((t.seatLayout?.rows || 0) * (t.seatLayout?.seatsPerRow || 0)), 0)}
+                </p>
+                <p className="text-sm text-gray-600">Tổng ghế</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -521,7 +804,7 @@ const TheaterManagement = () => {
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold">Chi Tiết Phòng Chiếu</h2>
                   <button
-                    onClick={() => setState(prev => ({ ...prev, showDetailModal: false }))}
+                    onClick={() => closeModal('showDetailModal')}
                     className="text-gray-500 hover:text-gray-700"
                   >
                     <X size={24} />
@@ -559,7 +842,7 @@ const TheaterManagement = () => {
                       Chỉnh sửa
                     </button>
                     <button
-                      onClick={() => setState(prev => ({ ...prev, showDetailModal: false }))}
+                      onClick={() => closeModal('showDetailModal')}
                       className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       Đóng
@@ -581,7 +864,7 @@ const TheaterManagement = () => {
                     Lịch Chiếu - {state.editingTheater.name}
                   </h2>
                   <button
-                    onClick={() => setState(prev => ({ ...prev, showScheduleModal: false }))}
+                    onClick={() => closeModal('showScheduleModal')}
                     className="text-gray-500 hover:text-gray-700"
                   >
                     <X size={24} />
@@ -596,7 +879,7 @@ const TheaterManagement = () => {
                     <div className="mt-3">
                       <button
                         onClick={() => {
-                          setState(prev => ({ ...prev, showScheduleModal: false }));
+                          closeModal('showScheduleModal');
                           // Navigate to showtime management - implement later
                         }}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -614,7 +897,7 @@ const TheaterManagement = () => {
 
                 <div className="flex gap-3 pt-4">
                   <button
-                    onClick={() => setState(prev => ({ ...prev, showScheduleModal: false }))}
+                    onClick={() => closeModal('showScheduleModal')}
                     className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Đóng
@@ -625,91 +908,95 @@ const TheaterManagement = () => {
           </div>
         )}
 
-        {/* Theaters Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTheaters.map((theater) => (
-            <div key={theater._id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Monitor size={24} className="text-blue-600" />
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800">{theater.name}</h3>
-                      <p className="text-sm text-gray-600 flex items-center gap-1">
-                        <MapPin size={14} />
-                        {getBranchName(theater.branch?._id || theater.branch)}
-                      </p>
-                    </div>
+        {/* Theaters Grid - Grouped by Branch */}
+        {state.selectedBranch ? (
+          // Hiển thị theo grid khi đã chọn chi nhánh
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                <MapPin size={20} className="text-blue-600" />
+                {getBranchName(state.selectedBranch)}
+                <span className="text-sm font-normal text-gray-500">
+                  ({filteredTheaters.length} phòng chiếu)
+                </span>
+              </h2>
+              <button
+                onClick={() => setState(prev => ({ ...prev, selectedBranch: '' }))}
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
+                Xem tất cả
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredTheaters.map((theater) => (
+                <TheaterCard
+                  key={theater._id}
+                  theater={theater}
+                  onViewDetail={handleViewDetail}
+                  onViewSchedule={handleViewSchedule}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+            {filteredTheaters.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                Chưa có phòng chiếu nào tại chi nhánh này
+              </div>
+            )}
+          </div>
+        ) : (
+          // Hiển thị nhóm theo chi nhánh khi chưa chọn
+          <div className="space-y-8">
+            {state.branches.map((branch) => {
+              const branchTheaters = filteredTheaters.filter(
+                t => t.branch?._id === branch._id || t.branch === branch._id
+              );
+              
+              if (branchTheaters.length === 0) return null;
+              
+              return (
+                <div key={branch._id} className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+                    <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                      <MapPin size={20} className="text-blue-600" />
+                      {branch.name}
+                      <span className="text-sm font-normal text-gray-500">
+                        ({branchTheaters.length} phòng chiếu)
+                      </span>
+                    </h2>
+                    <button
+                      onClick={() => setState(prev => ({ ...prev, selectedBranch: branch._id }))}
+                      className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    >
+                      Xem chi tiết
+                      <Eye size={14} />
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {branchTheaters.map((theater) => (
+                      <TheaterCard
+                        key={theater._id}
+                        theater={theater}
+                        onViewDetail={handleViewDetail}
+                        onViewSchedule={handleViewSchedule}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                      />
+                    ))}
                   </div>
                 </div>
-
-                <div className="mb-4 space-y-2">
-                  {theater.seatLayout && (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Số hàng ghế:</span>
-                        <span className="text-sm font-medium">{theater.seatLayout.rows || 0}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Ghế mỗi hàng:</span>
-                        <span className="text-sm font-medium">{theater.seatLayout.seatsPerRow || 0}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Tổng ghế:</span>
-                        <span className="text-sm font-bold text-blue-600">
-                          {(theater.seatLayout.rows || 0) * (theater.seatLayout.seatsPerRow || 0)} ghế
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Hàng VIP:</span>
-                        <span className="text-sm font-medium text-yellow-600">
-                          {(theater.seatLayout.vipRows || []).length} hàng
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleViewDetail(theater)}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                  >
-                    <Eye size={16} />
-                    Xem
-                  </button>
-                  <button
-                    onClick={() => handleViewSchedule(theater)}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
-                  >
-                    <Calendar size={16} />
-                    Lịch chiếu
-                  </button>
-                  <button
-                    onClick={() => handleEdit(theater)}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100 transition-colors"
-                  >
-                    <Edit2 size={16} />
-                    Sửa
-                  </button>
-                  <button
-                    onClick={() => handleDelete(theater._id)}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                    Xóa
-                  </button>
-                </div>
+              );
+            })}
+            
+            {filteredTheaters.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                {state.searchTerm ? "Không tìm thấy phòng chiếu nào phù hợp" : "Chưa có phòng chiếu nào"}
               </div>
-            </div>
-          ))}
-
-          {filteredTheaters.length === 0 && (
-            <div className="col-span-full text-center py-12 text-gray-500">
-              {state.searchTerm ? "Không tìm thấy phòng chiếu nào phù hợp" : "Chưa có phòng chiếu nào"}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
