@@ -9,12 +9,16 @@ const getTheaters = async (req, res) => {
   try {
     const theaters = await Theater.find({})
       .populate('branch', 'name location')
-      .populate('seatLayout')
+      .populate({
+        path: 'seatLayout',
+        options: { strictPopulate: false }
+      })
       .sort({ createdAt: -1 });
 
     res.json(theaters);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching theaters:', error);
+    res.status(500).json({ message: error.message || 'Failed to fetch theaters' });
   }
 };
 
@@ -25,7 +29,10 @@ const getTheaterById = async (req, res) => {
   try {
     const theater = await Theater.findById(req.params.id)
       .populate('branch', 'name location')
-      .populate('seatLayout');
+      .populate({
+        path: 'seatLayout',
+        options: { strictPopulate: false }
+      });
 
     if (theater) {
       res.json(theater);
@@ -33,7 +40,8 @@ const getTheaterById = async (req, res) => {
       res.status(404).json({ message: 'Theater not found' });
     }
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching theater by ID:', error);
+    res.status(500).json({ message: error.message || 'Failed to fetch theater' });
   }
 };
 
@@ -43,6 +51,17 @@ const getTheaterById = async (req, res) => {
 const createTheater = async (req, res) => {
   try {
     const { name, branch, seatLayout } = req.body;
+
+    console.log('Creating theater with data:', { name, branch, seatLayout });
+
+    // Validate required fields
+    if (!name || !branch) {
+      return res.status(400).json({ message: 'Name and branch are required' });
+    }
+
+    if (!seatLayout || !seatLayout.name || !seatLayout.rows || !seatLayout.seatsPerRow) {
+      return res.status(400).json({ message: 'Seat layout information is incomplete' });
+    }
 
     // Check if branch exists
     const branchExists = await Branch.findById(branch);
@@ -89,11 +108,16 @@ const createTheater = async (req, res) => {
     // Populate and return the created theater
     const populatedTheater = await Theater.findById(savedTheater._id)
       .populate('branch', 'name location')
-      .populate('seatLayout');
+      .populate({
+        path: 'seatLayout',
+        options: { strictPopulate: false }
+      });
 
+    console.log('Theater created successfully:', populatedTheater._id);
     res.status(201).json(populatedTheater);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error creating theater:', error);
+    res.status(500).json({ message: error.message || 'Failed to create theater' });
   }
 };
 
@@ -196,12 +220,16 @@ const getTheatersByBranch = async (req, res) => {
   try {
     const theaters = await Theater.find({ branch: req.params.branchId })
       .populate('branch', 'name location')
-      .populate('seatLayout')
+      .populate({
+        path: 'seatLayout',
+        options: { strictPopulate: false }
+      })
       .sort({ name: 1 });
 
     res.json(theaters);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching theaters by branch:', error);
+    res.status(500).json({ message: error.message || 'Failed to fetch theaters' });
   }
 };
 

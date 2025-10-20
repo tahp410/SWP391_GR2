@@ -4,9 +4,6 @@ import {
   Plus,
   Edit2,
   Trash2,
-  MapPin,
-  Phone,
-  Mail,
   Clock,
   Eye,
   X,
@@ -119,8 +116,13 @@ const MovieManagement = () => {
         setMovies((prev) => [...prev, newBranch]);
         showMessage("success", "Thêm phim thành công");
       } else {
-        const error = await response.json();
-        showMessage("error", error.message || "Lỗi khi thêm phim");
+        try {
+          const error = await response.json();
+          showMessage("error", error.message || "Lỗi khi thêm phim");
+        } catch (jsonError) {
+          console.error("Error parsing JSON:", jsonError);
+          showMessage("error", `Lỗi server: ${response.status} ${response.statusText}`);
+        }
       }
     } catch (error) {
       console.error("Error creating movie:", error);
@@ -146,8 +148,13 @@ const MovieManagement = () => {
         setMovies((prev) => prev.map((b) => (b._id === id ? updatedMovie : b)));
         showMessage("success", "Cập nhật phim thành công");
       } else {
-        const error = await response.json();
-        showMessage("error", error.message || "Lỗi khi cập nhật phim");
+        try {
+          const error = await response.json();
+          showMessage("error", error.message || "Lỗi khi cập nhật phim");
+        } catch (jsonError) {
+          console.error("Error parsing JSON:", jsonError);
+          showMessage("error", `Lỗi server: ${response.status} ${response.statusText}`);
+        }
       }
     } catch (error) {
       console.error("Error updating movie:", error);
@@ -170,8 +177,13 @@ const MovieManagement = () => {
         setMovies((prev) => prev.filter((b) => b._id !== id));
         showMessage("success", "Xóa phim thành công");
       } else {
-        const error = await response.json();
-        showMessage("error", error.message || "Lỗi khi xóa phim");
+        try {
+          const error = await response.json();
+          showMessage("error", error.message || "Lỗi khi xóa phim");
+        } catch (jsonError) {
+          console.error("Error parsing JSON:", jsonError);
+          showMessage("error", `Lỗi server: ${response.status} ${response.statusText}`);
+        }
       }
     } catch (error) {
       console.error("Error deleting movie:", error);

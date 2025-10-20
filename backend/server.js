@@ -29,7 +29,8 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors()); // cho phép gọi API từ domain khác (React)
-app.use(express.json()); // parse body JSON
+app.use(express.json({ limit: '50mb' })); // parse body JSON với limit lớn
+app.use(express.urlencoded({ limit: '50mb', extended: true })); // parse form data
 
 // Serve static files cho uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

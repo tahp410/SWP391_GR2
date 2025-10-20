@@ -132,22 +132,57 @@ const ShowtimeManagement = () => {
     const movie = state.movies.find(m => m._id === movieId);
     if (!movie || !movie.duration || !startTime) return '';
     
+    // Parse the datetime-local input value properly
     const start = new Date(startTime);
-    const durationMinutes = movie.duration;
-    const end = new Date(start.getTime() + durationMinutes * 60000); // Add duration in milliseconds
+    const durationMinutes = Number(movie.duration);
     
-    return end.toISOString().slice(0, 16); // Format for datetime-local input
+    // Add duration in milliseconds
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+    
+    // Format for datetime-local input (YYYY-MM-DDTHH:mm)
+    const year = end.getFullYear();
+    const month = String(end.getMonth() + 1).padStart(2, '0');
+    const day = String(end.getDate()).padStart(2, '0');
+    const hours = String(end.getHours()).padStart(2, '0');
+    const minutes = String(end.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   }, [state.movies]);
+
+  // Get minimum allowed date for showtime based on movie release date
+  const getMinStartTime = useCallback(() => {
+    if (!state.formData.movie) {
+      return new Date().toISOString().slice(0, 16);
+    }
+    
+    const movie = state.movies.find(m => m._id === state.formData.movie);
+    if (!movie || !movie.releaseDate) {
+      return new Date().toISOString().slice(0, 16);
+    }
+    
+    const releaseDate = new Date(movie.releaseDate);
+    const today = new Date();
+    
+    // Return the later of release date or today
+    const minDate = releaseDate > today ? releaseDate : today;
+    return minDate.toISOString().slice(0, 16);
+  }, [state.formData.movie, state.movies]);
 
   // Update end time when movie or start time changes
   useEffect(() => {
     if (state.formData.movie && state.formData.startTime) {
       const endTime = calculateEndTime(state.formData.startTime, state.formData.movie);
       if (endTime) {
+        console.log('Calculating end time:', {
+          startTime: state.formData.startTime,
+          movieId: state.formData.movie,
+          movie: state.movies.find(m => m._id === state.formData.movie),
+          calculatedEndTime: endTime
+        });
         updateFormField('endTime', endTime);
       }
     }
-  }, [state.formData.movie, state.formData.startTime, calculateEndTime]);
+  }, [state.formData.movie, state.formData.startTime, calculateEndTime, state.movies]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -155,6 +190,21 @@ const ShowtimeManagement = () => {
     
     if (!movie || !branch || !theater || !startTime || !endTime || !price.standard) {
       return showMessage('error', 'Vui lòng điền đầy đủ thông tin bắt buộc');
+    }
+
+    // Validate showtime date against movie release date
+    const selectedMovie = state.movies.find(m => m._id === movie);
+    if (selectedMovie && selectedMovie.releaseDate) {
+      const showtimeDate = new Date(startTime);
+      const releaseDate = new Date(selectedMovie.releaseDate);
+      
+      // Set both to start of day for comparison
+      showtimeDate.setHours(0, 0, 0, 0);
+      releaseDate.setHours(0, 0, 0, 0);
+      
+      if (showtimeDate < releaseDate) {
+        return showMessage('error', `Không thể tạo lịch chiếu trước ngày ra mắt phim (${releaseDate.toLocaleDateString('vi-VN')})`);
+      }
     }
 
     const submitData = {
@@ -417,9 +467,9 @@ const ShowtimeManagement = () => {
                       onChange={(e) => updateFormField('movie', e.target.value)}
                     >
                       <option value="">Chọn phim</option>
-                      {state.movies.filter(movie => movie.status === 'active').map((movie) => (
+                      {state.movies.filter(movie => movie.status === 'now-showing' || movie.status === 'coming-soon').map((movie) => (
                         <option key={movie._id} value={movie._id}>
-                          {movie.title} ({movie.duration} phút)
+                          {movie.title} ({movie.duration} phút) - {movie.status === 'now-showing' ? 'Đang chiếu' : 'Sắp chiếu'}
                         </option>
                       ))}
                     </FormField>
@@ -460,22 +510,46 @@ const ShowtimeManagement = () => {
                   </FormField>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      label="Thời gian bắt đầu"
-                      type="datetime-local"
-                      required
-                      value={state.formData.startTime}
-                      onChange={(e) => updateFormField('startTime', e.target.value)}
-                    />
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Thời gian bắt đầu <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={state.formData.startTime}
+                        onChange={(e) => updateFormField('startTime', e.target.value)}
+                        min={getMinStartTime()}
+                        disabled={!state.formData.movie}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      {state.formData.movie && (() => {
+                        const movie = state.movies.find(m => m._id === state.formData.movie);
+                        if (movie && movie.releaseDate) {
+                          const releaseDate = new Date(movie.releaseDate);
+                          return (
+                            <p className="text-xs text-blue-600 mt-1">
+                              Ngày ra mắt phim: {releaseDate.toLocaleDateString('vi-VN')}
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
 
-                    <FormField
-                      label="Thời gian kết thúc"
-                      type="datetime-local"
-                      required
-                      value={state.formData.endTime}
-                      onChange={(e) => updateFormField('endTime', e.target.value)}
-                      readOnly
-                    />
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Thời gian kết thúc <span className="text-red-500">*</span>
+                        <span className="text-xs text-gray-500 ml-2">(Tự động tính dựa trên thời lượng phim)</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={state.formData.endTime}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -606,6 +680,13 @@ const ShowtimeManagement = () => {
                       Giá VIP
                     </span>
                     <p className="font-medium text-yellow-600">{showtime.price?.vip?.toLocaleString() || 0} VNĐ</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600 flex items-center gap-1">
+                      <DollarSign size={14} />
+                      Giá đôi
+                    </span>
+                    <p className="font-medium text-pink-600">{showtime.price?.couple?.toLocaleString() || 0} VNĐ</p>
                   </div>
                 </div>
 

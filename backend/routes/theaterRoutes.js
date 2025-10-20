@@ -25,15 +25,16 @@ router.get('/', getTheaters);
 // @access  Private/Admin
 router.get('/branch/:branchId', getTheatersByBranch);
 
+// @route   GET /api/theaters/:id/seat-layout
+// @desc    Get seat layout by theater
+// @access  Private/Admin
+// IMPORTANT: This route must come BEFORE /:id to avoid route conflicts
+router.get('/:id/seat-layout', getSeatLayoutByTheater);
+
 // @route   GET /api/theaters/:id
 // @desc    Get theater by ID
 // @access  Private/Admin
 router.get('/:id', getTheaterById);
-
-// @route   GET /api/theaters/:id/seat-layout
-// @desc    Get seat layout by theater
-// @access  Private/Admin
-router.get('/:id/seat-layout', getSeatLayoutByTheater);
 
 // @route   POST /api/theaters
 // @desc    Create new theater

@@ -58,6 +58,20 @@ const createShowtime = async (req, res) => {
       return res.status(400).json({ message: 'Movie not found' });
     }
 
+    // Check if showtime date is valid (must be after or equal to release date)
+    const showtimeDate = new Date(startTime);
+    const movieReleaseDate = new Date(movieExists.releaseDate);
+    
+    // Set both dates to start of day for comparison
+    showtimeDate.setHours(0, 0, 0, 0);
+    movieReleaseDate.setHours(0, 0, 0, 0);
+    
+    if (showtimeDate < movieReleaseDate) {
+      return res.status(400).json({ 
+        message: `Không thể tạo lịch chiếu trước ngày ra mắt phim (${movieReleaseDate.toLocaleDateString('vi-VN')})` 
+      });
+    }
+
     // Check if branch exists
     const branchExists = await Branch.findById(branch);
     if (!branchExists) {
@@ -146,6 +160,21 @@ const updateShowtime = async (req, res) => {
       if (!movieExists) {
         return res.status(400).json({ message: 'Movie not found' });
       }
+
+      // Check if showtime date is valid (must be after or equal to release date)
+      const checkStartTime = startTime || showtime.startTime;
+      const showtimeDate = new Date(checkStartTime);
+      const movieReleaseDate = new Date(movieExists.releaseDate);
+      
+      // Set both dates to start of day for comparison
+      showtimeDate.setHours(0, 0, 0, 0);
+      movieReleaseDate.setHours(0, 0, 0, 0);
+      
+      if (showtimeDate < movieReleaseDate) {
+        return res.status(400).json({ 
+          message: `Không thể tạo lịch chiếu trước ngày ra mắt phim (${movieReleaseDate.toLocaleDateString('vi-VN')})` 
+        });
+      }
     }
 
     if (branch) {
@@ -164,6 +193,26 @@ const updateShowtime = async (req, res) => {
       const checkBranch = branch || showtime.branch;
       if (theaterExists.branch.toString() !== checkBranch.toString()) {
         return res.status(400).json({ message: 'Theater does not belong to the selected branch' });
+      }
+    }
+
+    // Check if startTime is being updated and validate against release date
+    if (startTime && !movie) {
+      // If movie is not being changed, check against existing movie's release date
+      const existingMovie = await Movie.findById(showtime.movie);
+      if (existingMovie) {
+        const showtimeDate = new Date(startTime);
+        const movieReleaseDate = new Date(existingMovie.releaseDate);
+        
+        // Set both dates to start of day for comparison
+        showtimeDate.setHours(0, 0, 0, 0);
+        movieReleaseDate.setHours(0, 0, 0, 0);
+        
+        if (showtimeDate < movieReleaseDate) {
+          return res.status(400).json({ 
+            message: `Không thể tạo lịch chiếu trước ngày ra mắt phim (${movieReleaseDate.toLocaleDateString('vi-VN')})` 
+          });
+        }
       }
     }
 
