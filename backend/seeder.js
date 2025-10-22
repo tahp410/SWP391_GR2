@@ -39,6 +39,21 @@ const seedData = async () => {
     // Create users (passwords will be hashed by userModel pre('save'))
     const users = await User.create([
       {
+        name: 'Bùi Giang',
+        email: 'lan22011971@gmail.com',
+        password: '123456',
+        phone: '0852244888',
+        province: 'Hà Nội',
+        city: 'Hà Nội',
+        gender: 'male',
+        dob: new Date('2005-09-12'),
+        role: 'customer',
+        preferences: {
+          genres: ['Action', 'Comedy'],
+          favoriteMovies: []
+        }
+      },
+      {
         name: 'Đặng Phát',
         email: 'dphat@example.com',
         password: '123456',

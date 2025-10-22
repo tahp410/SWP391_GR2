@@ -5,13 +5,21 @@ import ChangePassword from './changePassword';
 import HomePage from "./components/HomePage";
 import Profile from "./components/Profile";
 import BranchManagement from "./components/Admin/BranchManagement";
-import UserManagement from "./components/Admin/UserManagement";
 import AdminDashboard from "./components/Admin/AdminDashboard";
+import VoucherManagement from "./components/Admin/VoucherManagement";
+import Register from './Register';
+import ForgotPassword from './forgotPassword';
+import ResetPassword from './resetPassword';
+
+import MovieManagement from './components/Admin/MovieManagement';
+import ItemManagement from './components/Admin/ItemManagement';
+import ComboManagement from './components/Admin/ComboManagement';
+import TheaterManagement from './components/Admin/TheaterManagement';
+import ShowtimeManagement from './components/Admin/ShowtimeManagement';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
-import './style/adminLayout.css';
-import Register from './Register';
+
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -21,39 +29,52 @@ const AppInner = () => {
   return (
     <Router>
       <Routes>
+        {/* Login */}
         <Route 
           path="/" 
           element={isAuthenticated ? <Navigate to="/home" /> : <Login />} 
         />
-        <Route 
-          path="/home" 
-          element={isAuthenticated ? <HomePage /> : <Navigate to="/"/>} 
-        />
-        <Route 
-          path="/change-password" 
-          element={isAuthenticated ? <ChangePassword /> : <Navigate to="/" />} 
-        />
-        <Route 
-          path="/profile" 
-          element={isAuthenticated ? <Profile /> : <Navigate to="/" />} 
-        />
+
+        {/* Register */}
         <Route
           path="/register"
           element={isAuthenticated ? <Navigate to="/home" /> : <Register />} 
         />
+
+        {/* Home (chỉ cho người đã login) */}
+        <Route 
+          path="/home" 
+          element={isAuthenticated ? <HomePage /> : <Navigate to="/"/>} 
+        />
+
+        {/* Profile (chỉ cho người đã login) */}
+        <Route 
+          path="/profile" 
+          element={isAuthenticated ? <Profile /> : <Navigate to="/" />} 
+        />
+
+        {/* Change Password */}
+        <Route 
+          path="/change-password" 
+          element={isAuthenticated ? <ChangePassword /> : <Navigate to="/" />} 
+        />
+
+        {/* Forgot Password */}
+        <Route 
+          path="/forgot-password" 
+          element={isAuthenticated ? <Navigate to="/home" /> : <ForgotPassword />} 
+        />
+
+        {/* Reset Password */}
+        <Route 
+          path="/reset-password/:token" 
+          element={<ResetPassword />} 
+        />
+
         {/* Public Routes */}
-        <Route 
-          path="/movies" 
-          element={isAuthenticated ? <div>Movies Page - Coming Soon</div> : <Navigate to="/"/>} 
-        />
-        <Route 
-          path="/cinemas" 
-          element={isAuthenticated ? <div>Cinemas Page - Coming Soon</div> : <Navigate to="/"/>} 
-        />
-        <Route 
-          path="/showtimes" 
-          element={isAuthenticated ? <div>Showtimes Page - Coming Soon</div> : <Navigate to="/"/>} 
-        />
+        <Route path="/movies" element={isAuthenticated ? <div>Movies Page - Coming Soon</div> : <Navigate to="/"/>} />
+        <Route path="/cinemas" element={isAuthenticated ? <div>Cinemas Page - Coming Soon</div> : <Navigate to="/"/>} />
+        <Route path="/showtimes" element={isAuthenticated ? <div>Showtimes Page - Coming Soon</div> : <Navigate to="/"/>} />
         
         {/* Admin Routes */}
         <Route 
@@ -65,12 +86,28 @@ const AppInner = () => {
           element={isAdmin ? <BranchManagement /> : <Navigate to="/home" />} 
         />
         <Route 
+          path="/admin/theaters" 
+          element={isAdmin ? <TheaterManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/showtimes" 
+          element={isAdmin ? <ShowtimeManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
           path="/admin/users" 
-          element={isAdmin ? <UserManagement /> : <Navigate to="/home" />} 
+          element={isAdmin ? <div>User Management - Coming Soon</div> : <Navigate to="/home" />} 
         />
         <Route 
           path="/admin/movies" 
-          element={isAdmin ? <div>Movie Management - Coming Soon</div> : <Navigate to="/home" />} 
+          element={isAdmin ?<MovieManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/items" 
+          element={isAdmin ? <ItemManagement /> : <Navigate to="/home" />} 
+        />
+        <Route 
+          path="/admin/combos" 
+          element={isAdmin ? <ComboManagement /> : <Navigate to="/home" />} 
         />
         <Route 
           path="/admin/bookings" 
@@ -79,6 +116,11 @@ const AppInner = () => {
         <Route 
           path="/admin/settings" 
           element={isAdmin ? <div>Admin Settings - Coming Soon</div> : <Navigate to="/home" />} 
+        />
+
+        <Route 
+          path="/admin/vouchers" 
+          element={isAdmin ? <VoucherManagement /> : <Navigate to="/home" />} 
         />
         
         {/* 404 Route - Catch all */}

@@ -1,33 +1,46 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Header from './Header';
 
 
 const HomePage = () => {
+  const [hotMovies, setHotMovies] = useState([]);
+  const [nowShowingMovies, setNowShowingMovies] = useState([]);
+  const [recommendedMovies, setRecommendedMovies] = useState([]);
 
-  const movieData = {
-    title: "Adventure Time",
-    duration: "1h 30min",
-    language: "English",
-    subtitle: "Thai-Eng",
-    rating: "PG-13",
-    genre: "Animation"
+  useEffect(() => {
+    fetch('http://localhost:5000/api/movies')
+      .then(res => res.json())
+      .then(data => {
+        setHotMovies(data.filter(m => Number(m.hotness) > 5));
+        setNowShowingMovies(data); 
+        setRecommendedMovies(data); 
+      });
+  }, []);
+
+  const formatDuration = (min) => {
+    const minutes = Number(min) || 0;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h > 0) return `${h}h ${m}min`;
+    return `${m}min`;
   };
 
   const MovieCard = ({ movie, showTime }) => (
     <div className="movie-card">
       <div className="movie-poster">
-        <img src="/api/placeholder/200/280" alt={movie.title} />
+        <img src={movie.poster || "https://kenh14cdn.com/203336854389633024/2023/10/28/nvccspecial4x5-16984613995241980487333-16984631876291891509482.jpg"} alt={movie.title} />
       </div>
       <div className="movie-info">
         <h3>{movie.title}</h3>
         <div className="movie-details">
-          <span>{movie.duration}</span>
+          <span>{formatDuration(movie.duration)}</span>
+          <span>|</span>
           <span>{movie.language}</span>
           <span>{movie.subtitle}</span>
         </div>
         <div className="movie-meta">
           <span className="rating">{movie.rating}</span>
-          <span>{movie.genre}</span>
+          <span className="rating">{movie.genre}</span>
         </div>
         <div className="showtimes">
           <button className="showtime-btn">10:00</button>
@@ -45,8 +58,13 @@ const HomePage = () => {
       <Header />
 
       {/* Hero Section */}
-      <section className="hero">
-        <div className="hero-content">
+      <section className="hero" style={{ position: 'relative', overflow: 'hidden', height: '450px' }}>
+        <img
+          src="https://www.shutterstock.com/image-photo/seoul-south-korea-october-8-600nw-2373752765.jpg"
+          alt="Seoul Cinema"
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, opacity: 0.25, filter: 'brightness(0.5)' }}
+        />
+        <div className="hero-content" style={{ position: 'relative', zIndex: 1 }}>
           <div className="hero-text">
             <h1>Cinema Experience</h1>
             <p>Immerse yourself in the ultimate movie experience with premium comfort, cutting-edge technology, and the best blockbusters</p>
@@ -71,10 +89,11 @@ const HomePage = () => {
             </div>
           </div>
           <div className="movies-grid">
-            <MovieCard movie={movieData} />
-            <MovieCard movie={movieData} />
-            <MovieCard movie={movieData} />
-            <MovieCard movie={movieData} />
+            {hotMovies.length > 0 ? (
+              hotMovies.map((movie, idx) => <MovieCard key={movie._id || idx} movie={movie} />)
+            ) : (
+              <div>Không có phim hot nào!</div>
+            )}
           </div>
           <button className="see-all-btn">See all listing</button>
         </section>
@@ -89,10 +108,11 @@ const HomePage = () => {
             </div>
           </div>
           <div className="movies-grid">
-            <MovieCard movie={movieData} />
-            <MovieCard movie={movieData} />
-            <MovieCard movie={movieData} />
-            <MovieCard movie={movieData} />
+            {nowShowingMovies.length > 0 ? (
+              nowShowingMovies.map((movie, idx) => <MovieCard key={movie._id || idx} movie={movie} />)
+            ) : (
+              <div>Không có phim đang chiếu!</div>
+            )}
           </div>
           <button className="see-all-btn">See all listing</button>
         </section>
@@ -107,10 +127,11 @@ const HomePage = () => {
             </div>
           </div>
           <div className="movies-grid">
-            <MovieCard movie={movieData} />
-            <MovieCard movie={movieData} />
-            <MovieCard movie={movieData} />
-            <MovieCard movie={movieData} />
+            {recommendedMovies.length > 0 ? (
+              recommendedMovies.map((movie, idx) => <MovieCard key={movie._id || idx} movie={movie} />)
+            ) : (
+              <div>Không có phim đề xuất!</div>
+            )}
           </div>
           <button className="see-all-btn">See all listing</button>
         </section>
@@ -156,11 +177,12 @@ const HomePage = () => {
         </section>
 
         {/* Final CTA */}
-        <section className="final-cta">
-          <h2>Movie viewing color to your life</h2>
-          <div className="cgv-logo-large">
-            <img src="/api/placeholder/120/60" alt="CGV" />
-          </div>
+        <section className="final-cta" style={{ width: '100%', padding: 0, margin: 0 }}>
+          <img
+            src="https://www.cgv.vn//media/wysiwyg/about-9.PNG"
+            alt="CGV banner"
+            style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover', borderRadius: 0 }}
+          />
         </section>
       </main>
 
@@ -173,12 +195,6 @@ const HomePage = () => {
             <a href="#contact">Contact Us</a>
             <a href="#privacy">Privacy Policy</a>
             <a href="#terms">Terms & Conditions</a>
-          </div>
-          <div className="social-links">
-            <a href="#facebook">📘</a>
-            <a href="#instagram">📷</a>
-            <a href="#youtube">📺</a>
-            <a href="#twitter">🐦</a>
           </div>
         </div>
         <div className="footer-bottom">

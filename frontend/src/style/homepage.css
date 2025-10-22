@@ -235,6 +235,7 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 2rem;
   margin-bottom: 2rem;
+  color: #ffffff;
 }
 
 .movie-card {
@@ -464,6 +465,7 @@ body {
 
 .cgv-logo-large img {
   height: 60px;
+  max-width: max-content;
 }
 
 /* Footer */

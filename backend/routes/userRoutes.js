@@ -1,24 +1,28 @@
 import express from "express";
-import protect, { adminOnly, adminOrEmployee } from "../middleware/authMiddleware.js";
-import { loginUser, changePassword, registerUser, addUser, updateUser, getAllUsers, deleteUser } from "../controllers/userController.js";
-import { getUserProfile, updateUserProfile } from "../controllers/profileController.js";
+import protect from "../middleware/authMiddleware.js";
+import {
+  loginUser,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+  getProfile,
+  updateProfile,
+} from "../controllers/userController.js";
+
 const router = express.Router();
 
-// Auth routes
+// Auth routes (Đăng nhập & Đổi mật khẩu)
 router.post("/login", loginUser);
+
+// Đường dẫn này yêu cầu người dùng phải đăng nhập (có token hợp lệ)
 router.post("/change-password", protect, changePassword);
-router.post("/register", registerUser); // Người dùng tự đăng ký
 
-// Admin routes - yêu cầu quyền admin
-router.post("/add", protect, adminOnly, addUser); // Admin thêm user mới
-router.get("/", protect, adminOrEmployee, getAllUsers); // Lấy danh sách tất cả users
-router.put("/:id", protect, adminOrEmployee, updateUser); // Cập nhật user
-router.delete("/:id", protect, adminOnly, deleteUser); // Xóa user
+// Forgot & Reset password (Quên và Đặt lại mật khẩu)
+router.post("/forgot-password", forgotPassword); 
+router.post("/reset-password/:token", resetPassword);
 
-// Profile routes
-router.get("/profile", protect, getUserProfile);
-router.put("/profile", protect, updateUserProfile);
+// Profile routes (Yêu cầu đăng nhập)
+router.get("/profile", protect, getProfile);
+router.put("/profile", protect, updateProfile);
 
 export default router;
-
-

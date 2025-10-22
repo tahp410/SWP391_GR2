@@ -12,7 +12,12 @@ import {
   LogOut,
   User,
   Bell,
-  Search
+  Search,
+  TicketPercent,
+  ShoppingBag,
+  Package,
+  Monitor,
+  Calendar
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../style/adminLayout.css';
@@ -26,17 +31,27 @@ const AdminLayout = ({ children, title = 'Dashboard' }) => {
 
   const userInfo = user || { name: 'Admin', email: 'admin@cine.com', role: 'admin' };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  // 🔹 Logout safe
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/");
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
   };
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
     { id: 'branches', label: 'Chi Nhánh', icon: Building2, path: '/admin/branches' },
+    { id: 'theaters', label: 'Phòng Chiếu', icon: Monitor, path: '/admin/theaters' },
+    { id: 'showtimes', label: 'Lịch Chiếu', icon: Calendar, path: '/admin/showtimes' },
     { id: 'users', label: 'Người Dùng', icon: Users, path: '/admin/users' },
     { id: 'movies', label: 'Phim', icon: Film, path: '/admin/movies' },
+    { id: 'items', label: 'Sản Phẩm', icon: ShoppingBag, path: '/admin/items' },
+    { id: 'combos', label: 'Combo', icon: Package, path: '/admin/combos' },
     { id: 'bookings', label: 'Đặt Vé', icon: Ticket, path: '/admin/bookings' },
+    { id: 'vouchers', label: 'Voucher', icon: TicketPercent, path: '/admin/vouchers' },
     { id: 'settings', label: 'Cài Đặt', icon: Settings, path: '/admin/settings' }
   ];
 

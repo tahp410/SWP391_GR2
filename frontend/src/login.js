@@ -1,109 +1,77 @@
-// ============================================================================
-// LOGIN COMPONENT - Trang đăng nhập cho hệ thống đặt vé xem phim CineTicket
-// ============================================================================
-
-// 1. IMPORTS VÀ DEPENDENCIES
-import React, { useState, useEffect } from 'react'; // React hooks cho state management và side effects
-import { Eye, EyeOff, Mail, Lock, Film, Loader2, AlertCircle, CheckCircle } from 'lucide-react'; // Icons đẹp cho UI
-import { useNavigate } from 'react-router-dom'; // Hook điều hướng giữa các trang
-import { useAuth } from './contexts/AuthContext'; // Custom hook quản lý authentication
+import React, { useState } from 'react';
+import { Eye, EyeOff, Mail, Lock, Film, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
 
 const Login = () => {
-  // 2. HOOKS VÀ STATE INITIALIZATION
-  const navigate = useNavigate(); // Hook để điều hướng sau khi đăng nhập thành công
-  const { login } = useAuth(); // Lấy function login từ AuthContext để lưu token và user data
-  
-  // 3. STATE MANAGEMENT - Quản lý các trạng thái của component
+  const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
-    email: '',     // Lưu email người dùng nhập
-    password: ''   // Lưu mật khẩu người dùng nhập
+    email: '',
+    password: ''
   });
-  
-  const [showPassword, setShowPassword] = useState(false); // Toggle hiện/ẩn mật khẩu
-  const [errors, setErrors] = useState({}); // Lưu các lỗi validation
-  const [isLoading, setIsLoading] = useState(false); // Trạng thái loading khi đăng nhập
-  const [rememberMe, setRememberMe] = useState(false); // Trạng thái checkbox ghi nhớ
 
-  // 4. CHỨC NĂNG GHI NHỚ ĐĂNG NHẬP
-  // useEffect chạy khi component mount để kiểm tra thông tin đã lưu
-  useEffect(() => {
-    const savedUser = localStorage.getItem('rememberUser'); // Lấy thông tin đã lưu từ localStorage
-    if (savedUser) {
-      const userData = JSON.parse(savedUser); // Parse JSON string thành object
-      if (userData.rememberMe) { // Nếu user đã chọn ghi nhớ
-        setFormData(prev => ({
-          ...prev,
-          email: userData.email // Tự động điền email đã lưu
-        }));
-        setRememberMe(true); // Tự động check checkbox ghi nhớ
-      }
-    }
-  }, []); // Dependencies rỗng nghĩa là chỉ chạy 1 lần khi component mount
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
-  // 5. XỬ LÝ THAY ĐỔI INPUT VÀ AUTO CLEAR ERRORS
   const handleInputChange = (e) => {
-    const { name, value } = e.target; // Destructuring để lấy name và value từ input
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value // Cập nhật field tương ứng trong formData
+      [name]: value
     }));
-    
-    // TÍNH NĂNG THÔNG MINH: Tự động xóa lỗi khi user bắt đầu sửa field đó
+
+    // Clear errors when user types
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
-        [name]: '' // Xóa lỗi của field đang được sửa
+        [name]: ''
       }));
     }
   };
 
-  // 6. TOGGLE HIỆN/ẨN MẬT KHẨU - Cải thiện UX
   const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword); // Đảo ngược trạng thái hiện/ẩn mật khẩu
+    setShowPassword(!showPassword);
   };
 
-  // 7. VALIDATION FORM - Kiểm tra dữ liệu trước khi gửi
   const validateForm = () => {
-    const newErrors = {}; // Object chứa các lỗi
+    const newErrors = {};
 
-    // Validation cho EMAIL
     if (!formData.email) {
       newErrors.email = 'Vui lòng nhập email';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) { // Regex kiểm tra format email
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email không hợp lệ';
     }
 
-    // Validation cho PASSWORD
     if (!formData.password) {
       newErrors.password = 'Vui lòng nhập mật khẩu';
-    } else if (formData.password.length < 6) { // Yêu cầu tối thiểu 6 ký tự
+    } else if (formData.password.length < 6) {
       newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
     }
 
-    return newErrors; // Trả về object chứa lỗi (rỗng nếu không có lỗi)
+    return newErrors;
   };
 
-  // 8. XỬ LÝ ĐĂNG NHẬP CHÍNH - Function quan trọng nhất
   const handleSubmit = async (e) => {
-    e.preventDefault(); // Ngăn form submit mặc định của browser
-    
-    // BƯỚC 1: Validate form trước khi gửi API
+    e.preventDefault();
+
+    // Validate form
     const validationErrors = validateForm();
-    if (Object.keys(validationErrors).length > 0) { // Nếu có lỗi
-      setErrors(validationErrors); // Hiển thị lỗi cho user
-      return; // Dừng xử lý
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
     }
 
-    // BƯỚC 2: Bắt đầu quá trình đăng nhập
-    setIsLoading(true); // Hiển thị loading spinner
-    setErrors({}); // Xóa các lỗi cũ
+    setIsLoading(true);
+    setErrors({});
 
     try {
-      // BƯỚC 3: Gửi request đến backend API
       const response = await fetch('http://localhost:5000/api/users/login', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', // Báo server nhận JSON
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           email: formData.email,
@@ -111,64 +79,53 @@ const Login = () => {
         }),
       });
 
-      const data = await response.json(); // Parse response thành JSON
+      const data = await response.json();
 
-      // BƯỚC 4: Kiểm tra response từ server
       if (!response.ok) {
         throw new Error(data.message || 'Đăng nhập thất bại');
       }
 
-      // BƯỚC 5: Chuẩn bị dữ liệu user để lưu
+      // Lưu thông tin user và token
       const userData = {
-        id: data._id,     // ID từ MongoDB
-        name: data.name,  // Tên user
-        email: data.email, // Email user
-        role: data.role   // Vai trò (admin/employee/customer)
+        id: data._id,
+        name: data.name,
+        email: data.email,
+        role: data.role
       };
-      
-      // BƯỚC 6: XỬ LÝ CHỨC NĂNG GHI NHỚ ĐĂNG NHẬP
-      if (rememberMe) {
-        // Nếu user chọn ghi nhớ → Lưu email vào localStorage
-        localStorage.setItem('rememberUser', JSON.stringify({
-          email: formData.email,
-          rememberMe: true
-        }));
-      } else {
-        // Nếu không chọn ghi nhớ → Xóa thông tin đã lưu
-        localStorage.removeItem('rememberUser');
-      }
-      
-      // BƯỚC 7: Lưu token và user data vào AuthContext
-      login(data.token, userData); // Gọi function login từ AuthContext
+      login(data.token, userData);
 
-      // BƯỚC 8: Reset form sau khi đăng nhập thành công
+      // Reset form
       setFormData({
         email: '',
         password: ''
       });
       setErrors({});
-      
-      // BƯỚC 9: Chuyển hướng đến trang chủ
+
+      // Chuyển hướng đến trang chủ
       window.location.href = '/home';
-      
+
     } catch (error) {
-      // XỬ LÝ LỖI: Hiển thị lỗi cho user nếu đăng nhập thất bại
       setErrors({
         general: error.message || 'Đã có lỗi xảy ra, vui lòng thử lại'
       });
     } finally {
-      // LUÔN CHẠY: Tắt loading state dù thành công hay thất bại
       setIsLoading(false);
     }
   };
 
-  // ============================================================================
-  // 9. RENDER JSX - GIAO DIỆN NGƯỜI DÙNG
-  // ============================================================================
+  const handleGoogleLogin = () => {
+    console.log('Google login clicked');
+    // Implement Google OAuth login
+  };
+
+  const handleFacebookLogin = () => {
+    console.log('Facebook login clicked');
+    // Implement Facebook OAuth login
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-black flex items-center justify-center p-4">
-      {/* BACKGROUND EFFECTS - Tạo hiệu ứng nền cinema */}
+      {/* Background movie elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-20 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 right-20 w-40 h-40 bg-red-500/10 rounded-full blur-3xl"></div>
@@ -258,17 +215,20 @@ const Login = () => {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="sr-only"
                 />
-                <div className={`w-5 h-5 rounded border-2 mr-3 flex items-center justify-center transition-all duration-300 ${
-                  rememberMe 
-                    ? 'bg-red-600 border-red-600' 
+                <div className={`w-5 h-5 rounded border-2 mr-3 flex items-center justify-center transition-all duration-300 ${rememberMe
+                    ? 'bg-red-600 border-red-600'
                     : 'border-yellow-400/30 hover:border-yellow-400/50'
-                }`}>
+                  }`}>
                   {rememberMe && <CheckCircle className="w-3 h-3 text-white" />}
                 </div>
                 <span className="text-gray-400 text-sm">Ghi nhớ đăng nhập</span>
               </label>
-              
-              <button className="text-yellow-400 hover:text-yellow-300 text-sm font-medium transition-colors">
+
+              <button
+                type="button"
+                onClick={() => navigate('/forgot-password')}
+                className="text-yellow-400 hover:text-yellow-300 text-sm font-medium transition-colors"
+              >
                 Quên mật khẩu?
               </button>
             </div>
@@ -289,6 +249,13 @@ const Login = () => {
               )}
             </button>
 
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-600"></div>
+              </div>
+            </div>
+
             {/* Register Link */}
             <div className="text-center pt-4">
               <p className="text-gray-400">
@@ -297,7 +264,7 @@ const Login = () => {
                   type="button"
                   className="text-yellow-400 hover:text-yellow-300 font-medium transition-colors"
                   onClick={() => navigate('/Register')}>
-                        Đăng ký ngay
+                  Đăng ký ngay
                 </button>
               </p>
             </div>
