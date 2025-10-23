@@ -16,6 +16,7 @@ import ItemManagement from './components/Admin/ItemManagement';
 import ComboManagement from './components/Admin/ComboManagement';
 import TheaterManagement from './components/Admin/TheaterManagement';
 import ShowtimeManagement from './components/Admin/ShowtimeManagement';
+import UserManagement from './components/Admin/UserManagement';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
@@ -95,7 +96,7 @@ const AppInner = () => {
         />
         <Route 
           path="/admin/users" 
-          element={isAdmin ? <div>User Management - Coming Soon</div> : <Navigate to="/home" />} 
+          element={isAdmin ? <UserManagement /> : <Navigate to="/home" />} 
         />
         <Route 
           path="/admin/movies" 

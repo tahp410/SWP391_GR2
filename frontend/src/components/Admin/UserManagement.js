@@ -1,15 +1,9 @@
-// ============================================================================
-// USER MANAGEMENT COMPONENT - Quản lý người dùng cho Admin
-// ============================================================================
 
-// 1. IMPORTS VÀ DEPENDENCIES
 import React, { useMemo, useState, useEffect } from 'react'; // React hooks tối ưu performance
 import AdminLayout from './AdminLayout'; // Layout wrapper cho admin pages
 import axios from 'axios'; // HTTP client để gọi API
 
-// 2. DATA CONSTANTS - Dữ liệu tĩnh dùng trong component
 
-// ROLES - Định nghĩa các vai trò người dùng trong hệ thống
 const ROLES = [
   { label: 'Tất cả', value: 'all' },      // Option để hiển thị tất cả users
   { label: 'ADMIN', value: 'admin' },     // Quản trị viên - quyền cao nhất
@@ -17,8 +11,6 @@ const ROLES = [
   { label: 'CUSTOMER', value: 'customer' }  // Khách hàng - đặt vé
 ];
 
-// PROVINCES - Dữ liệu tỉnh/thành và quận/huyện Việt Nam
-// Dùng cho dropdown chọn địa chỉ khi tạo/sửa user
 
 const PROVINCES = [
   { name: 'Hà Nội', cities: ['Ba Đình', 'Hoàn Kiếm', 'Tây Hồ', 'Long Biên', 'Cầu Giấy', 'Đống Đa', 'Hai Bà Trưng', 'Hoàng Mai', 'Thanh Xuân', 'Sóc Sơn', 'Đông Anh', 'Gia Lâm', 'Nam Từ Liêm', 'Bắc Từ Liêm', 'Mê Linh', 'Hà Đông', 'Sơn Tây', 'Ba Vì', 'Phúc Thọ', 'Đan Phượng', 'Hoài Đức', 'Quốc Oai', 'Thạch Thất', 'Chương Mỹ', 'Thanh Oai', 'Thường Tín', 'Phú Xuyên', 'Ứng Hòa', 'Mỹ Đức'] },
@@ -238,7 +230,6 @@ const UserManagementContent = () => {
         dob: '2000-01-01'
       };
 
-      // Chỉ gửi province/city nếu có giá trị thực sự
       if (creating.province && creating.province.trim() !== '') {
         userData.province = creating.province.trim();
       }
@@ -246,8 +237,8 @@ const UserManagementContent = () => {
         userData.city = creating.city.trim();
       }
 
-      // Sử dụng endpoint /add thay vì /register và cần token admin
-      await axios.post('http://localhost:5000/api/users/add', userData, {
+      // Sử dụng endpoint chính xác theo backend routes
+      await axios.post('http://localhost:5000/api/users/', userData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -260,8 +251,6 @@ const UserManagementContent = () => {
       // Hiển thị thông báo thành công
       alert('✅ Tạo người dùng thành công!');
       
-      // REMOVED: Không lưu token của user mới để tránh ghi đè token admin
-      // Giữ nguyên token admin trong localStorage để tiếp tục có quyền quản lý
     } catch (e) {
       console.error(e);
       const status = e.response?.status;
@@ -591,7 +580,7 @@ const UserManagementContent = () => {
                 }} 
                 className={`w-full border-2 rounded px-3 py-2 bg-white text-black ${editErrors.province ? 'border-red-500' : 'border-gray-400'}`}
               >
-                <option value="">Chọn Tỉnh/Thành phố *</option>
+                <option value="">{editing.province || 'Tỉnh/Thành phố hiện tại'}</option>
                 {PROVINCES.map(province => (
                   <option key={province.name} value={province.name}>{province.name}</option>
                 ))}
@@ -610,7 +599,7 @@ const UserManagementContent = () => {
                 className={`w-full border-2 rounded px-3 py-2 bg-white text-black ${editErrors.city ? 'border-red-500' : 'border-gray-400'}`}
                 disabled={!editing.province}
               >
-                <option value="">Chọn Quận/Huyện *</option>
+                <option value="">{editing.city || 'Quận/Huyện hiện tại'}</option>
                 {editing.province && PROVINCES.find(p => p.name === editing.province)?.cities.map(city => (
                   <option key={city} value={city}>{city}</option>
                 ))}

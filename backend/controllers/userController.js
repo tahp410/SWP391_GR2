@@ -6,6 +6,8 @@
 import User from "../models/userModel.js"; // Model User để tương tác với MongoDB
 import jwt from "jsonwebtoken"; // Thư viện tạo và verify JWT tokens
 import bcrypt from "bcryptjs"; // Thư viện hash password để bảo mật
+import crypto from "crypto";
+import nodemailer from "nodemailer";
 
 // REGISTER USER - Đăng ký tài khoản mới (cho người dùng tự đăng ký từ frontend)
 export const registerUser = async (req, res) => {
@@ -327,5 +329,152 @@ export const updateUser = async (req, res) => {
   } catch (error) {
     // ERROR HANDLING: Có thể là lỗi validation, duplicate email, hoặc database error
     return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+/**
+ * @desc    Quên mật khẩu (Gửi email chứa link reset token)
+ * @route   POST /api/users/forgotpassword
+ * @access  Public
+ */
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "❌ Không tìm thấy email trong hệ thống" });
+    }
+
+    const resetToken = crypto.randomBytes(20).toString("hex");
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 phút
+    await user.save();
+
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+
+    const transporter = nodemailer.createTransporter({
+      service: "gmail",
+      auth: {
+        user: process.env.SMTP_EMAIL,
+        pass: process.env.SMTP_PASSWORD,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.SMTP_EMAIL,
+      to: user.email,
+      subject: "🔑 Reset mật khẩu",
+      html: `
+        <p>Bạn vừa yêu cầu đặt lại mật khẩu.</p>
+        <p>Click vào link dưới đây để reset:</p>
+        <a href="${resetUrl}">${resetUrl}</a>
+        <p>Link có hiệu lực trong 10 phút.</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.json({ message: "📧 Email reset password đã được gửi" });
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    if (user) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save();
+    }
+    res.status(500).json({ message: "Có lỗi khi gửi email" });
+  }
+};
+
+/**
+ * @desc    Reset mật khẩu bằng token
+ * @route   PUT /api/users/resetpassword/:token
+ * @access  Public
+ */
+export const resetPassword = async (req, res) => {
+  try {
+    const { password, confirmPassword } = req.body;
+    const token = req.params.token;
+
+    if (!password || !confirmPassword) {
+      return res.status(400).json({ 
+        message: "Vui lòng nhập đầy đủ mật khẩu và xác nhận mật khẩu" 
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({ 
+        message: "Mật khẩu và xác nhận mật khẩu không khớp" 
+      });
+    }
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
+    }
+
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.json({ message: "Đổi mật khẩu thành công" });
+  } catch (error) {
+    console.error("Reset Password Error:", error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+/**
+ * @desc    Lấy thông tin profile của user
+ * @route   GET /api/users/profile
+ * @access  Private
+ */
+export const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error("Get profile error:", error);
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};
+
+/**
+ * @desc    Cập nhật thông tin profile của user
+ * @route   PUT /api/users/profile
+ * @access  Private
+ */
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, email, dob, phone, province, city, gender } = req.body;
+    
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (dob) user.dob = dob;
+    if (phone) user.phone = phone;
+    if (province) user.province = province;
+    if (city) user.city = city;
+    if (gender) user.gender = gender;
+
+    await user.save();
+
+    const userResponse = await User.findById(user._id).select('-password');
+    res.json(userResponse);
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ message: "Lỗi server", error: error.message });
   }
 };
