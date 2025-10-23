@@ -34,7 +34,6 @@ const ShowtimeManagement = () => {
     selectedTheater: '',
     loading: true,
     showForm: false,
-    showDetailModal: false,
     editingShowtime: null,
     formData: {
       movie: '',
@@ -51,6 +50,9 @@ const ShowtimeManagement = () => {
     },
     message: { type: '', text: '' }
   });
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailShowtime, setDetailShowtime] = useState(null);
 
   const API_BASE = 'http://localhost:5000/api';
 
@@ -301,9 +303,16 @@ const ShowtimeManagement = () => {
     showForm: false
   }));
 
-  const handleViewDetail = (showtime) => setState(prev => ({
-    ...prev, editingShowtime: showtime, showDetailModal: true
-  }));
+  const handleViewDetail = (showtime) => {
+    // Open detail modal without touching editingShowtime (keeps edit flow intact)
+    setDetailShowtime(showtime);
+    setDetailOpen(true);
+  };
+
+  const closeDetailModal = () => {
+    setDetailOpen(false);
+    setDetailShowtime(null);
+  };
 
   const filteredShowtimes = state.showtimes.filter(showtime => {
     const matchesSearch = 
@@ -325,6 +334,16 @@ const ShowtimeManagement = () => {
   const getMovieTitle = (movieId) => {
     const movie = state.movies.find(m => m._id === movieId);
     return movie ? movie.title : 'N/A';
+  };
+
+  // Trả về poster cho movie. movieRef có thể là id hoặc object movie.
+  const getMoviePoster = (movieRef) => {
+    if (!movieRef) return '';
+    // Nếu đã là object và có poster, dùng luôn
+    if (typeof movieRef === 'object' && movieRef.poster) return movieRef.poster;
+    const id = typeof movieRef === 'string' ? movieRef : movieRef._id;
+    const movie = state.movies.find(m => m._id === id);
+    return movie && movie.poster ? movie.poster : '';
   };
 
   const getBranchName = (branchId) => {
@@ -715,7 +734,10 @@ const ShowtimeManagement = () => {
                 </div>
               </div>
             </div>
+            
+
           ))}
+          
 
           {filteredShowtimes.length === 0 && (
             <div className="text-center py-12 text-gray-500">
@@ -725,6 +747,76 @@ const ShowtimeManagement = () => {
             </div>
           )}
         </div>
+
+        {/* Detail Modal */}
+        {detailOpen && detailShowtime && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="p-4 border-b flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Chi tiết suất chiếu</h3>
+                <button onClick={closeDetailModal} className="text-gray-600 hover:text-gray-800 p-1">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-1">
+                    <img
+                      src={ getMoviePoster(detailShowtime.movie || detailShowtime.movie?._id) || detailShowtime.poster || detailShowtime.moviePoster || '' }
+                      alt={getMovieTitle(detailShowtime.movie?._id || detailShowtime.movie)}
+                      className="w-full h-48 object-cover rounded mb-4"
+                    />
+
+                    <h4 className="font-semibold text-lg">
+                      {getMovieTitle(detailShowtime.movie?._id || detailShowtime.movie)}
+                    </h4>
+                    <p className="text-sm text-gray-600">{getBranchName(detailShowtime.branch?._id || detailShowtime.branch)}</p>
+                    <p className="text-sm text-gray-600">{getTheaterName(detailShowtime.theater?._id || detailShowtime.theater)}</p>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-4">
+                    <div>
+                      <div className="text-sm text-gray-500">Thời gian bắt đầu</div>
+                      <div className="font-medium">{formatDateTime(detailShowtime.startTime)}</div>
+                    </div>
+
+                    <div>
+                      <div className="text-sm text-gray-500">Thời gian kết thúc</div>
+                      <div className="font-medium">{formatDateTime(detailShowtime.endTime)}</div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <div className="text-sm text-gray-500">Giá thường</div>
+                        <div className="font-medium text-green-600">{detailShowtime.price?.standard?.toLocaleString() || '0'} VNĐ</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Giá VIP</div>
+                        <div className="font-medium text-yellow-600">{detailShowtime.price?.vip?.toLocaleString() || '0'} VNĐ</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Giá đôi</div>
+                        <div className="font-medium text-pink-600">{detailShowtime.price?.couple?.toLocaleString() || '0'} VNĐ</div>
+                      </div>
+                    </div>
+
+                    { (detailShowtime.notes || detailShowtime.description) && (
+                      <div>
+                        <div className="text-sm text-gray-500">Ghi chú</div>
+                        <div className="whitespace-pre-wrap text-gray-700">{detailShowtime.notes || detailShowtime.description}</div>
+                      </div>
+                    )}
+
+                    <div className="pt-4 flex justify-end">
+                      <button onClick={closeDetailModal} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Đóng</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
