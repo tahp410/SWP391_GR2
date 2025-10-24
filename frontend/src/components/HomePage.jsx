@@ -8,14 +8,17 @@ const HomePage = () => {
   const [recommendedMovies, setRecommendedMovies] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/movies')
-      .then(res => res.json())
-      .then(data => {
-        setHotMovies(data.filter(m => Number(m.hotness) > 5));
-        setNowShowingMovies(data); 
-        setRecommendedMovies(data); 
-      });
-  }, []);
+  Promise.all([
+    fetch('http://localhost:5000/api/movies/hot').then(res => res.json()),
+    fetch('http://localhost:5000/api/movies/now-showing').then(res => res.json()),
+    fetch('http://localhost:5000/api/movies').then(res => res.json())
+  ]).then(([hot, nowShowing, all]) => {
+    setHotMovies(hot);
+    setNowShowingMovies(nowShowing);
+    setRecommendedMovies(all);
+  });
+}, []);
+
 
   const formatDuration = (min) => {
     const minutes = Number(min) || 0;
