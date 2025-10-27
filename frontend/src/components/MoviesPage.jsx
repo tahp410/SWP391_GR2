@@ -92,7 +92,7 @@ const MoviesPage = () => {
   // Handle movie selection
   const handleMovieSelect = (movie) => {
     setSelectedMovie(movie);
-    fetchShowtimes(movie.id);
+    fetchShowtimes(movie._id || movie.id);
   };
 
   // Close modal
@@ -193,7 +193,7 @@ const MoviesPage = () => {
         <div className="container">
           <div className="movies-grid">
             {filteredMovies.map(movie => (
-              <div key={movie.id} className="movie-card">
+              <div key={movie._id || movie.id} className="movie-card">
                 <div className="movie-poster">
                   <img
                     src={movie.poster || 'https://via.placeholder.com/300x450/1a1a1a/ffffff?text=No+Image'}
@@ -325,8 +325,8 @@ const MoviesPage = () => {
                   <div className="showtimes-section">
                     <h3>Lịch chiếu:</h3>
                     <div className="showtimes-grid">
-                      {showtimes.map(showtime => (
-                        <div key={showtime.id} className="showtime-card">
+                      {showtimes.map((showtime, index) => (
+                        <div key={showtime._id || showtime.id || index} className="showtime-card">
                           <div className="showtime-time">
                             <Clock className="time-icon" />
                             <span>{showtime.startTime}</span>
