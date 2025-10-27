@@ -4,6 +4,7 @@ import Login from './login';
 import ChangePassword from './changePassword';
 import HomePage from "./components/HomePage";
 import Profile from "./components/Profile";
+import MoviesPage from "./components/MoviesPage";
 import BranchManagement from "./components/Admin/BranchManagement";
 import AdminDashboard from "./components/Admin/AdminDashboard";
 import VoucherManagement from "./components/Admin/VoucherManagement";
@@ -73,7 +74,7 @@ const AppInner = () => {
         />
 
         {/* Public Routes */}
-        <Route path="/movies" element={isAuthenticated ? <div>Movies Page - Coming Soon</div> : <Navigate to="/"/>} />
+        <Route path="/movies" element={isAuthenticated ? <MoviesPage /> : <Navigate to="/"/>} />
         <Route path="/cinemas" element={isAuthenticated ? <div>Cinemas Page - Coming Soon</div> : <Navigate to="/"/>} />
         <Route path="/showtimes" element={isAuthenticated ? <div>Showtimes Page - Coming Soon</div> : <Navigate to="/"/>} />
         

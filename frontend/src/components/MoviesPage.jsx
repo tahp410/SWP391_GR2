@@ -1,29 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, Clock, Calendar, Eye, Play } from 'lucide-react';
+import { Search, Filter, Star, Calendar, Clock, MapPin, X } from 'lucide-react';
 import Header from './Header';
-import MovieDetail from './MovieDetail';
 import '../style/moviesPage.css';
 
 const MoviesPage = () => {
   const [movies, setMovies] = useState([]);
+  const [filteredMovies, setFilteredMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGenre, setSelectedGenre] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [showDetail, setShowDetail] = useState(false);
+  const [selectedGenre, setSelectedGenre] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [showtimes, setShowtimes] = useState([]);
 
-  const API_BASE_URL = 'http://localhost:5000/api';
-
+  // Fetch movies
   const fetchMovies = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/movies`);
+      const response = await fetch('http://localhost:5000/api/movies');
       if (response.ok) {
         const data = await response.json();
         setMovies(data);
-      } else {
-        console.error('Error fetching movies');
+        setFilteredMovies(data);
       }
     } catch (error) {
       console.error('Error fetching movies:', error);
@@ -32,149 +30,103 @@ const MoviesPage = () => {
     }
   }, []);
 
-  const searchMovies = useCallback(
-    async (term) => {
-      if (!term.trim()) {
-        fetchMovies();
-        return;
+  // Search movies
+  const searchMovies = useCallback(async (term) => {
+    if (!term.trim()) {
+      setFilteredMovies(movies);
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/movies/search?q=${encodeURIComponent(term)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setFilteredMovies(data);
       }
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/movies/search?q=${encodeURIComponent(term)}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setMovies(data);
-        } else {
-          console.error('Error searching movies');
+    } catch (error) {
+      console.error('Error searching movies:', error);
+    }
+  }, [movies]);
+
+  // Filter movies
+  const filterMovies = useCallback(() => {
+    let filtered = movies;
+
+    if (selectedGenre) {
+      filtered = filtered.filter(movie => {
+        // Handle both array and string genre formats
+        if (Array.isArray(movie.genre)) {
+          return movie.genre.includes(selectedGenre);
         }
-      } catch (error) {
-        console.error('Error searching movies:', error);
+        return movie.genre === selectedGenre;
+      });
+    }
+
+    if (selectedStatus) {
+      filtered = filtered.filter(movie => movie.status === selectedStatus);
+    }
+
+    setFilteredMovies(filtered);
+  }, [movies, selectedGenre, selectedStatus]);
+
+  // Fetch showtimes for selected movie
+  const fetchShowtimes = async (movieId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/showtimes/movie/${movieId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setShowtimes(data);
       }
-    },
-    [fetchMovies]
-  );
+    } catch (error) {
+      console.error('Error fetching showtimes:', error);
+    }
+  };
+
+  // Handle search
+  const handleSearch = (e) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    searchMovies(term);
+  };
+
+  // Handle movie selection
+  const handleMovieSelect = (movie) => {
+    setSelectedMovie(movie);
+    fetchShowtimes(movie.id);
+  };
+
+  // Close modal
+  const closeModal = () => {
+    setSelectedMovie(null);
+    setShowtimes([]);
+  };
 
   useEffect(() => {
     fetchMovies();
   }, [fetchMovies]);
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim()) {
-        searchMovies(searchTerm);
-      } else {
-        fetchMovies();
+    filterMovies();
+  }, [filterMovies]);
+
+  // Get unique genres and statuses
+  const genres = [...new Set(
+    movies.flatMap(movie => {
+      // Handle both array and string genre formats
+      if (Array.isArray(movie.genre)) {
+        return movie.genre;
       }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, searchMovies, fetchMovies]);
-
-  const formatDuration = (min) => {
-    const minutes = Number(min) || 0;
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    if (h > 0) return `${h}h ${m}min`;
-    return `${m}min`;
-  };
-
-  const handleMovieClick = (movie) => {
-    setSelectedMovie(movie);
-    setShowDetail(true);
-  };
-
-  const closeDetail = () => {
-    setShowDetail(false);
-    setSelectedMovie(null);
-  };
-
-  // Get unique genres from movies
-  const genres = ['all', ...new Set(movies.map(movie => movie.genre).filter(Boolean))];
-
-  // Filter movies based on search term, genre, and status
-  const filteredMovies = movies.filter(movie => {
-    const matchesSearch = movie.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         movie.director?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         movie.genre?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesGenre = selectedGenre === 'all' || movie.genre === selectedGenre;
-    const matchesStatus = selectedStatus === 'all' || movie.status === selectedStatus;
-    
-    return matchesSearch && matchesGenre && matchesStatus;
-  });
-
-  // Movie card component
-  const MovieCard = ({ movie }) => (
-    <div className="movie-card">
-      <div className="movie-poster">
-        <img
-          src={movie.poster || "https://via.placeholder.com/300x400/1f2937/ffffff?text=No+Image"}
-          alt={movie.title}
-          className="w-full h-full object-cover cursor-pointer"
-          onClick={() => handleMovieClick(movie)}
-          loading="lazy"
-          onError={(e) => {
-            e.target.src = "https://via.placeholder.com/300x400/1f2937/ffffff?text=No+Image";
-          }}
-        />
-        <div className="movie-overlay" onClick={() => handleMovieClick(movie)}>
-          <Play className="play-icon" />
-        </div>
-        {movie.hotness > 5 && (
-          <div className="hot-badge">
-            🔥 HOT
-          </div>
-        )}
-      </div>
-      <div className="movie-info">
-        <h3 className="movie-title">
-          {movie.title}
-        </h3>
-        <div className="movie-meta">
-          <div className="movie-rating">
-            <Clock size={16} className="clock-icon" />
-            <span>{movie.rating || 'N/A'}</span>
-          </div>
-          <div className="movie-duration">
-            <Clock size={16} className="clock-icon" />
-            <span>{formatDuration(movie.duration)}</span>
-          </div>
-        </div>
-        <div className="movie-genre">
-          <span>{movie.genre}</span>
-        </div>
-        <div className="movie-status">
-          <span className={`status-badge ${
-            movie.status === 'now-showing' ? 'now-showing' :
-            movie.status === 'coming-soon' ? 'coming-soon' :
-            'ended'
-          }`}>
-            {movie.status === 'now-showing' ? 'Đang chiếu' :
-             movie.status === 'coming-soon' ? 'Sắp chiếu' :
-             'Đã kết thúc'}
-          </span>
-        </div>
-        <button
-          onClick={() => handleMovieClick(movie)}
-          className="btn-primary"
-        >
-          <Eye size={16} />
-          Xem chi tiết
-        </button>
-      </div>
-    </div>
-  );
+      return [movie.genre];
+    })
+  )];
+  const statuses = [...new Set(movies.map(movie => movie.status))];
 
   if (loading) {
     return (
       <div className="movies-page">
-        <Header />
-        <div className="flex items-center justify-center min-h-96 movies-content">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-            <p className="text-white">Đang tải danh sách phim...</p>
-          </div>
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Đang tải danh sách phim...</p>
         </div>
       </div>
     );
@@ -182,29 +134,30 @@ const MoviesPage = () => {
 
   return (
     <div className="movies-page">
+      {/* Header */}
       <Header />
 
-      {/* Hero Section */}
-      <section className="movies-hero">
-        <div className="movies-hero-content">
+      {/* Header Section */}
+      <div className="movies-header">
+        <div className="container">
           <h1>Khám phá bộ sưu tập phim</h1>
-          <p>Tìm kiếm và khám phá những bộ phim hay nhất</p>
+          <p>Tìm kiếm và đặt vé cho những bộ phim hay nhất</p>
         </div>
-      </section>
+      </div>
 
       {/* Search and Filter Section */}
-      <section className="search-filter-section">
+      <div className="search-filter-section">
         <div className="container">
           <div className="search-bar">
             <Search className="search-icon" />
             <input
               type="text"
-              placeholder="Tìm kiếm theo tên phim, đạo diễn, thể loại..."
+              placeholder="Tìm kiếm phim..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearch}
             />
           </div>
-
+          
           <div className="filters">
             <div className="filter-group">
               <Filter className="filter-icon" />
@@ -212,58 +165,212 @@ const MoviesPage = () => {
                 value={selectedGenre}
                 onChange={(e) => setSelectedGenre(e.target.value)}
               >
-                <option value="all">Tất cả thể loại</option>
-                {genres.slice(1).map(genre => (
+                <option value="">Tất cả thể loại</option>
+                {genres.map(genre => (
                   <option key={genre} value={genre}>{genre}</option>
                 ))}
               </select>
             </div>
-
+            
             <div className="filter-group">
+              <Calendar className="filter-icon" />
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
               >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="now-showing">Đang chiếu</option>
-                <option value="coming-soon">Sắp chiếu</option>
-                <option value="ended">Đã kết thúc</option>
+                <option value="">Tất cả trạng thái</option>
+                {statuses.map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
               </select>
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Movies Section */}
-      <section className="movies-section">
+      {/* Movies Grid */}
+      <div className="movies-content">
         <div className="container">
-          <div className="section-header">
-            <h2>Danh sách phim</h2>
-            <p>Tìm thấy {filteredMovies.length} phim</p>
+          <div className="movies-grid">
+            {filteredMovies.map(movie => (
+              <div key={movie.id} className="movie-card">
+                <div className="movie-poster">
+                  <img
+                    src={movie.poster || 'https://via.placeholder.com/300x450/1a1a1a/ffffff?text=No+Image'}
+                    alt={movie.title}
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/300x450/1a1a1a/ffffff?text=No+Image';
+                    }}
+                    loading="lazy"
+                  />
+                </div>
+                <div className="movie-card-content">
+                  <h3 className="movie-card-title">{movie.title}</h3>
+                  <p className="movie-card-genre">{movie.genre}</p>
+                  <div className="movie-card-rating">
+                    <Star className="star-icon" size={16} />
+                    <span>{movie.rating || 'N/A'}</span>
+                  </div>
+                  <div className="movie-card-buttons">
+                    <button 
+                      className="btn-view-details"
+                      onClick={() => handleMovieSelect(movie)}
+                    >
+                      Xem chi tiết
+                    </button>
+                    <button 
+                      className="btn-book-ticket"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      Đặt vé
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-
-          {filteredMovies.length > 0 ? (
-            <div className="movies-grid">
-              {filteredMovies.map((movie, index) => (
-                <MovieCard key={movie._id || index} movie={movie} />
-              ))}
-            </div>
-          ) : (
-            <div className="no-movies">
-              <div className="no-movies-icon">🎬</div>
-              <h3>Không tìm thấy phim nào</h3>
-              <p>Hãy thử thay đổi từ khóa tìm kiếm hoặc bộ lọc</p>
-            </div>
-          )}
         </div>
-      </section>
+      </div>
 
       {/* Movie Detail Modal */}
-      {showDetail && selectedMovie && (
-        <MovieDetail
-          movie={selectedMovie}
-          onClose={closeDetail}
-        />
+      {selectedMovie && (
+        <div className="movie-modal-overlay" onClick={closeModal}>
+          <div className="movie-modal" onClick={(e) => e.stopPropagation()}>
+            {/* Close button */}
+            <button className="modal-close-btn" onClick={closeModal}>
+              <X size={24} />
+            </button>
+            
+            <div className="movie-detail">
+              <div className="movie-detail-poster">
+                <img
+                  src={selectedMovie.poster || 'https://via.placeholder.com/400x600/1a1a1a/ffffff?text=No+Image'}
+                  alt={selectedMovie.title}
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/400x600/1a1a1a/ffffff?text=No+Image';
+                  }}
+                />
+              </div>
+              
+              <div className="movie-detail-info">
+                <h2>{selectedMovie.title}</h2>
+                <p className="movie-detail-genre">
+                  {Array.isArray(selectedMovie.genre) ? selectedMovie.genre.join(', ') : selectedMovie.genre}
+                </p>
+                <p className="movie-detail-description">{selectedMovie.description}</p>
+                
+                <div className="movie-detail-meta">
+                  <div className="meta-item">
+                    <Star className="meta-icon" />
+                    <span>Đánh giá: {selectedMovie.rating || 'N/A'}</span>
+                  </div>
+                  <div className="meta-item">
+                    <Clock className="meta-icon" />
+                    <span>Thời lượng: {selectedMovie.duration || 'N/A'} phút</span>
+                  </div>
+                  <div className="meta-item">
+                    <Calendar className="meta-icon" />
+                    <span>Ngày phát hành: {new Date(selectedMovie.releaseDate).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  {selectedMovie.endDate && (
+                    <div className="meta-item">
+                      <Calendar className="meta-icon" />
+                      <span>Ngày kết thúc: {new Date(selectedMovie.endDate).toLocaleDateString('vi-VN')}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Additional Information */}
+                <div className="movie-detail-additional">
+                  {selectedMovie.director && (
+                    <div className="additional-item">
+                      <span className="additional-label">Đạo diễn:</span>
+                      <span className="additional-value">{selectedMovie.director}</span>
+                    </div>
+                  )}
+                  {selectedMovie.cast && Array.isArray(selectedMovie.cast) && selectedMovie.cast.length > 0 && (
+                    <div className="additional-item">
+                      <span className="additional-label">Diễn viên:</span>
+                      <span className="additional-value">{selectedMovie.cast.join(', ')}</span>
+                    </div>
+                  )}
+                  {selectedMovie.language && (
+                    <div className="additional-item">
+                      <span className="additional-label">Ngôn ngữ:</span>
+                      <span className="additional-value">{selectedMovie.language}</span>
+                    </div>
+                  )}
+                  {selectedMovie.status && (
+                    <div className="additional-item">
+                      <span className="additional-label">Trạng thái:</span>
+                      <span className={`status-badge status-${selectedMovie.status}`}>
+                        {selectedMovie.status === 'now-showing' ? 'Đang chiếu' : 
+                         selectedMovie.status === 'coming-soon' ? 'Sắp chiếu' : 
+                         selectedMovie.status === 'ended' ? 'Đã kết thúc' : selectedMovie.status}
+                      </span>
+                    </div>
+                  )}
+                  {selectedMovie.hotness && selectedMovie.hotness > 0 && (
+                    <div className="additional-item">
+                      <span className="additional-label">Độ nổi tiếng:</span>
+                      <span className="additional-value">🔥 {selectedMovie.hotness}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Showtimes */}
+                {showtimes.length > 0 && (
+                  <div className="showtimes-section">
+                    <h3>Lịch chiếu:</h3>
+                    <div className="showtimes-grid">
+                      {showtimes.map(showtime => (
+                        <div key={showtime.id} className="showtime-card">
+                          <div className="showtime-time">
+                            <Clock className="time-icon" />
+                            <span>{showtime.startTime}</span>
+                          </div>
+                          <div className="showtime-theater">
+                            <MapPin className="location-icon" />
+                            <span>{showtime.theaterName}</span>
+                          </div>
+                          <button 
+                            className="book-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          >
+                            Đặt vé
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                  {/* Action Buttons */}
+                <div className="movie-detail-actions">
+                  <button className="view-trailer-button" onClick={(e) => {
+                    e.stopPropagation();
+                    if (selectedMovie.trailer) {
+                      window.open(selectedMovie.trailer, '_blank');
+                    } else {
+                      alert('Trailer chưa có sẵn');
+                    }
+                  }}>
+                    Xem trailer
+                  </button>
+                  <button className="book-ticket-button" onClick={(e) => {
+                    e.stopPropagation();
+                  }}>
+                    Đặt vé
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

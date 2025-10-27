@@ -25,7 +25,7 @@ const Header = () => {
     <header className="header">
       <div className="header-content">
         <div className="logo">
-          <Link to="/home">
+          <Link to="/">
             <img src="https://dynamic.design.com/asset/logo/d6333ac1-12fb-4695-a153-5238580a8ee6/logo-search-grid-2x?logoTemplateVersion=1&v=638909241779300000&text=Cinema&layout=auto" alt="CGV" />
           </Link>
         </div>
