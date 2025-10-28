@@ -11,13 +11,13 @@ import VoucherManagement from "./components/Admin/VoucherManagement";
 import Register from './Register';
 import ForgotPassword from './forgotPassword';
 import ResetPassword from './resetPassword';
-
 import MovieManagement from './components/Admin/MovieManagement';
 import ItemManagement from './components/Admin/ItemManagement';
 import ComboManagement from './components/Admin/ComboManagement';
 import TheaterManagement from './components/Admin/TheaterManagement';
 import ShowtimeManagement from './components/Admin/ShowtimeManagement';
 import UserManagement from './components/Admin/UserManagement';
+import ShowtimeList from './components/ShowtimeList'; // ✅ Thêm dòng này
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
@@ -43,13 +43,13 @@ const AppInner = () => {
           element={isAuthenticated ? <Navigate to="/home" /> : <Register />} 
         />
 
-        {/* Home (chỉ cho người đã login) */}
+        {/* Home */}
         <Route 
           path="/home" 
           element={isAuthenticated ? <HomePage /> : <Navigate to="/"/>} 
         />
 
-        {/* Profile (chỉ cho người đã login) */}
+        {/* Profile */}
         <Route 
           path="/profile" 
           element={isAuthenticated ? <Profile /> : <Navigate to="/" />} 
@@ -76,8 +76,13 @@ const AppInner = () => {
         {/* Public Routes */}
         <Route path="/movies" element={isAuthenticated ? <MoviesPage /> : <Navigate to="/"/>} />
         <Route path="/cinemas" element={isAuthenticated ? <div>Cinemas Page - Coming Soon</div> : <Navigate to="/"/>} />
-        <Route path="/showtimes" element={isAuthenticated ? <div>Showtimes Page - Coming Soon</div> : <Navigate to="/"/>} />
-        
+
+        {/* ✅ Sửa route này để hiển thị ShowtimeList thay vì "Coming Soon" */}
+        <Route 
+          path="/showtimes" 
+          element={isAuthenticated ? <ShowtimeList /> : <Navigate to="/"/>} 
+        />
+
         {/* Admin Routes */}
         <Route 
           path="/admin" 
@@ -119,13 +124,12 @@ const AppInner = () => {
           path="/admin/settings" 
           element={isAdmin ? <div>Admin Settings - Coming Soon</div> : <Navigate to="/home" />} 
         />
-
         <Route 
           path="/admin/vouchers" 
           element={isAdmin ? <VoucherManagement /> : <Navigate to="/home" />} 
         />
-        
-        {/* 404 Route - Catch all */}
+
+        {/* 404 Route */}
         <Route 
           path="*" 
           element={

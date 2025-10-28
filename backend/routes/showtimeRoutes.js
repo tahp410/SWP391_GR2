@@ -1,4 +1,5 @@
 import express from 'express';
+import Showtime from '../models/showtimeModel.js'; // 👈 cần import thêm dòng này
 import {
   getShowtimes,
   getShowtimeById,
@@ -13,7 +14,32 @@ import protect from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// All routes require authentication
+/* ===========================
+   🌸 PUBLIC ROUTES (User)
+   =========================== */
+
+// @route   GET /api/showtimes/public
+// @desc    Public route for users to see active showtimes
+// @access  Public
+router.get('/public', async (req, res) => {
+  try {
+    const showtimes = await Showtime.find({ status: 'active' })
+      .populate('movie', 'title duration genre poster rating')
+      .populate('branch', 'name location')
+      .populate('theater', 'name')
+      .sort({ startTime: 1 });
+
+    res.json(showtimes);
+  } catch (error) {
+    console.error('Public showtimes error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/* ===========================
+   🛡️ ADMIN ROUTES (Require Auth)
+   =========================== */
+
 router.use(protect);
 
 // @route   GET /api/showtimes
