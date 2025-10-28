@@ -13,6 +13,25 @@ const router = express.Router();
 
 // Public routes - ai cũng có thể xem danh sách và tìm kiếm chi nhánh
 router.get("/", getAllMovies);
+
+router.get("/hot", async (req, res) => {
+  try {
+    const movies = await Movie.find({ hotness: { $gt: 5 } });
+    res.json(movies);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi khi lấy phim hot" });
+  }
+});
+
+router.get("/now-showing", async (req, res) => {
+  try {
+    const movies = await Movie.find({ status: "now-showing" });
+    res.json(movies);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi khi lấy phim đang chiếu" });
+  }
+});
+
 router.get("/search", searchMovie);
 router.get("/:id", getMovieById);
 

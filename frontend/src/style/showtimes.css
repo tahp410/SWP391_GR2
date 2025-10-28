@@ -1,0 +1,160 @@
+/* Toàn bộ trang */
+.cgv-container {
+  background: linear-gradient(135deg, #000 0%, #1a1a1a 100%);
+  color: #fff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  min-height: 100vh;
+  padding-top: 80px;
+}
+
+/* Header */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 2rem auto;
+  max-width: 1200px;
+  padding: 0 1rem;
+  color: #fff;
+}
+
+.section-header h2 {
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.section-header p {
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 0.2rem;
+  font-size: 0.9rem;
+}
+
+/* Icon */
+.section-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.showing-icon {
+  background: linear-gradient(45deg, #4ecdc4, #44a08d);
+}
+
+/* Lưới phim */
+.showtime-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto 4rem;
+  padding: 0 1rem;
+}
+
+/* Card phim */
+.showtime-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.showtime-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* Poster */
+.showtime-poster {
+  height: 380px;
+  overflow: hidden;
+}
+
+.showtime-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s ease;
+}
+
+.showtime-card:hover img {
+  transform: scale(1.05);
+}
+
+/* Thông tin phim */
+.showtime-info {
+  padding: 1.5rem;
+}
+
+.showtime-info h3 {
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.showtime-info p {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.4rem;
+}
+
+.movie-genre {
+  color: #4ecdc4;
+  margin-bottom: 0.8rem;
+  font-weight: 500;
+}
+
+/* Nút đặt vé */
+.book-btn {
+  background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+  border: none;
+  color: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: 30px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-top: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.book-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+}
+
+/* Loading và Empty */
+.showtime-loading,
+.showtime-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  text-align: center;
+}
+
+.loading-text,
+.empty-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.2rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .showtime-poster {
+    height: 300px;
+  }
+
+  .showtime-info h3 {
+    font-size: 1.1rem;
+  }
+
+  .book-btn {
+    font-size: 0.85rem;
+  }
+}

@@ -357,6 +357,36 @@ const getShowtimesByDateRange = async (req, res) => {
   }
 };
 
+// @desc    Get public showtimes (for user homepage)
+// @route   GET /api/showtimes/public
+// @access  Public
+const getPublicShowtimes = async (req, res) => {
+  try {
+    const showtimes = await Showtime.find({ status: 'active' })
+      .populate('movie', 'title duration genre poster rating')
+      .populate('branch', 'name location')
+      .populate('theater', 'name')
+      .sort({ startTime: 1 });
+
+    // Chỉ trả ra những field user cần xem
+    const formattedShowtimes = showtimes.map(st => ({
+      id: st._id,
+      movieTitle: st.movie?.title,
+      moviePoster: st.movie?.poster,
+      movieGenre: st.movie?.genre,
+      branchName: st.branch?.name,
+      theaterName: st.theater?.name,
+      startTime: st.startTime,
+      endTime: st.endTime,
+      price: st.price?.standard,
+    }));
+
+    res.json(formattedShowtimes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export {
   getShowtimes,
   getShowtimeById,
@@ -365,5 +395,6 @@ export {
   deleteShowtime,
   getShowtimesByBranch,
   getShowtimesByTheater,
-  getShowtimesByDateRange
+  getShowtimesByDateRange,
+  getPublicShowtimes
 };
