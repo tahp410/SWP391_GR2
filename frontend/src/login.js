@@ -113,16 +113,6 @@ const Login = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    console.log('Google login clicked');
-    // Implement Google OAuth login
-  };
-
-  const handleFacebookLogin = () => {
-    console.log('Facebook login clicked');
-    // Implement Facebook OAuth login
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-black flex items-center justify-center p-4">
       {/* Background movie elements */}
