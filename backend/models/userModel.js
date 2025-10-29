@@ -65,6 +65,18 @@ const userSchema = new mongoose.Schema(
         },
       ],
     },
+
+       // Mã xác minh email (6 chữ số)
+    verificationCode: {
+      type: String,
+    },
+
+    // Trạng thái xác minh email
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+
     // Token để reset mật khẩu (dùng cho chức năng quên mật khẩu)
     resetPasswordToken: {
       type: String,

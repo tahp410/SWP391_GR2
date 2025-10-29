@@ -128,33 +128,69 @@
   box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
 }
 
-/* Loading và Empty */
-.showtime-loading,
-.showtime-empty {
+/* 🎯 Bộ lọc */
+.filter-container {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  text-align: center;
+  gap: 1.5rem;
+  margin: 1.5rem auto;
+  padding: 1rem 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  max-width: 1200px;
+  align-items: flex-end;
 }
 
-.loading-text,
-.empty-text {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+  flex: 1;
+}
+
+.filter-item label {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Input + Select đồng bộ */
+.filter-item select,
+.filter-item input[type="text"] {
+  background: #2a2a2a;
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  outline: none;
+  transition: all 0.25s ease;
+  font-size: 0.95rem;
+}
+
+.filter-item select::placeholder,
+.filter-item input[type="text"]::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.filter-item select:hover,
+.filter-item input[type="text"]:hover {
+  border-color: #4ecdc4;
+}
+
+.filter-item select:focus,
+.filter-item input[type="text"]:focus {
+  border-color: #4ecdc4;
+  box-shadow: 0 0 8px rgba(78, 205, 196, 0.3);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
+  .filter-container {
+    flex-direction: column;
+  }
+
   .showtime-poster {
     height: 300px;
-  }
-
-  .showtime-info h3 {
-    font-size: 1.1rem;
-  }
-
-  .book-btn {
-    font-size: 0.85rem;
   }
 }

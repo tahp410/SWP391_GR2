@@ -23,7 +23,25 @@ const router = express.Router();
 // @access  Public
 router.get('/public', async (req, res) => {
   try {
-    const showtimes = await Showtime.find({ status: 'active' })
+    const { branchId, date } = req.query;
+
+    // Điều kiện cơ bản: chỉ lấy showtime đang active
+    const now = new Date();
+    const filter = { status: 'active', endTime: { $gte: now } };
+
+    // Nếu có filter theo chi nhánh
+    if (branchId) filter.branch = branchId;
+
+    // Nếu có filter theo ngày (ví dụ: 2025-10-31)
+    if (date) {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      filter.startTime = { $gte: startOfDay, $lte: endOfDay };
+    }
+
+    const showtimes = await Showtime.find(filter)
       .populate('movie', 'title duration genre poster rating')
       .populate('branch', 'name location')
       .populate('theater', 'name')

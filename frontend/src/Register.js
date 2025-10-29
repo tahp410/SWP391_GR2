@@ -121,46 +121,43 @@ export default function Register() {
 
   // Send verification code
   const sendVerificationCode = async (email) => {
-    try {
-      setIsVerifying(true);
-      setErrors({}); // Clear any previous errors
-      
-      const response = await fetch(`${import.meta.env?.VITE_API_URL || 'http://localhost:5000'}/api/auth/send-verification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
+  try {
+    setIsVerifying(true);
+    setErrors({}); // Clear any previous errors
+    
+    const response = await fetch(`${import.meta.env?.VITE_API_URL || 'http://localhost:5000'}/api/auth/send-verification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
 
-      const data = await response.json();
-      if (response.ok) {
-        setCountdown(300); // 5 minutes
-        setCanResend(false);
-        
-        if (data.emailSent) {
-          alert(`📧 Email xác minh đã được gửi thành công!\n\n📮 Vui lòng kiểm tra hộp thư của: ${email}\n\n⏰ Mã có hiệu lực trong 5 phút\n💡 Lưu ý: Hãy kiểm tra cả thư mục Spam/Junk nếu không thấy email`);
-        } else {
-          alert(`📧 Mã xác minh: ${data.code}\n\n⚠️ Demo mode: Hệ thống gửi email gặp sự cố.\nTrong thực tế, mã này sẽ được gửi đến email ${email}`);
-        }
-        return true;
-      } else {
-        throw new Error(data.message || 'Không thể gửi mã xác minh');
-      }
-    } catch (error) {
-      if (error.message.includes('Email already registered')) {
-        setErrors({ email: 'Email này đã được đăng ký' });
-        const emailInput = document.getElementById('email');
-        if (emailInput) {
-          emailInput.focus();
-          emailInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      } else {
-        alert(`Lỗi: ${error.message}`);
-      }
-      return false;
-    } finally {
-      setIsVerifying(false);
+    const data = await response.json();
+    if (response.ok) {
+      setCountdown(300); // 5 minutes
+      setCanResend(false);
+
+      setVerificationStep("verify");
+
+      return true;
+    } else {
+      throw new Error(data.message || 'Không thể gửi mã xác minh');
     }
-  };
+  } catch (error) {
+    if (error.message.includes('Email already registered')) {
+      setErrors({ email: 'Email này đã được đăng ký' });
+      const emailInput = document.getElementById('email');
+      if (emailInput) {
+        emailInput.focus();
+        emailInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    } else {
+      alert(`Lỗi: ${error.message}`);
+    }
+    return false;
+  } finally {
+    setIsVerifying(false);
+  }
+};
 
   // Verify code
   const verifyEmailCode = async (email, code) => {

@@ -224,7 +224,6 @@ const generateVerificationEmailHTML = (code) => {
           <div style="${emailStyles.instructionsBox}">
             <h3 style="${emailStyles.instructionsTitle}">📋 Hướng dẫn:</h3>
             <ul style="${emailStyles.instructionsList}">
-              <li style="color: #ffffff;">Quay lại trang đăng ký CineTicket</li>
               <li>Nhập mã <strong style="color: #d4af37;">${code}</strong> vào ô xác minh</li>
               <li style="color: #ffffff;">Hoàn tất đăng ký và bắt đầu đặt vé xem phim!</li>
             </ul>

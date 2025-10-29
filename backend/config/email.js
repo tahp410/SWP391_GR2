@@ -12,6 +12,12 @@
  */
 
 import nodemailer from "nodemailer";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+console.log("📧 SMTP_EMAIL:", process.env.SMTP_EMAIL);
+console.log("📧 SMTP_PASSWORD:", process.env.SMTP_PASSWORD ? "(loaded)" : "(missing)");
 
 // Tạo đối tượng transporter với cấu hình Gmail SMTP
 const transporter = nodemailer.createTransport({

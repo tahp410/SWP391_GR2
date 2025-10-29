@@ -8,66 +8,87 @@ import jwt from "jsonwebtoken"; // Thư viện tạo và verify JWT tokens
 import bcrypt from "bcryptjs"; // Thư viện hash password để bảo mật
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+import transporter from "../config/email.js"; // Import transporter từ config/email.js
 
 // REGISTER USER - Đăng ký tài khoản mới (cho người dùng tự đăng ký từ frontend)
 export const registerUser = async (req, res) => {
   try {
-    // DESTRUCTURING - Chỉ lấy thông tin cơ bản cho đăng ký
-    const {
-      name,
-      email,
-      password,
-      phone
-    } = req.body;
+    const { name, email, password, phone } = req.body;
 
-    // VALIDATION: Kiểm tra các field bắt buộc
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Thiếu tên, email hoặc mật khẩu" });
     }
 
-    // DUPLICATE CHECK: Kiểm tra email đã tồn tại chưa
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
-      return res.status(409).json({ message: "Email đã tồn tại" }); // 409 Conflict
+      return res.status(409).json({ message: "Email đã tồn tại" });
     }
 
-    // PHONE NORMALIZATION: Chuẩn hóa số điện thoại
     const normalizedPhone = /^\d{10}$/.test((phone || '').toString().trim())
       ? (phone || '').toString().trim()
       : '0000000000';
 
-    // CREATE USER: Tạo user mới với role mặc định là customer
+    // 🧩 Tạo mã xác minh email 6 chữ số
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Tạo user mới (chưa kích hoạt)
     const user = await User.create({
       name,
       email: email.toLowerCase(),
-      password,                          // Sẽ được hash tự động
+      password,
       phone: normalizedPhone,
-      role: 'customer',                  // Luôn là customer khi tự đăng ký
-      gender: 'other',                   // Giá trị mặc định
-      province: 'Chưa cập nhật',         // Thân thiện hơn N/A
-      city: 'Chưa cập nhật',             // Thân thiện hơn N/A
-      dob: new Date('2000-01-01')
+      role: 'customer',
+      gender: 'other',
+      province: 'Chưa cập nhật',
+      city: 'Chưa cập nhật',
+      dob: new Date('2000-01-01'),
+      verificationCode,        // Lưu mã xác minh vào DB
+      isVerified: false        // Gắn cờ chưa xác minh
     });
 
-    // JWT TOKEN GENERATION: Tạo token để user đăng nhập luôn
+    // ✉️ Cấu hình email xác minh
+    const mailOptions = {
+      from: process.env.SMTP_EMAIL,
+      to: user.email,
+      subject: "Xác minh tài khoản - CineTicket",
+      html: `
+        <h2>Chào mừng ${user.name}!</h2>
+        <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>CineTicket</strong>.</p>
+        <p>Mã xác minh của bạn là:</p>
+        <h1 style="color:#e74c3c;letter-spacing:3px;">${verificationCode}</h1>
+        <p>Vui lòng nhập mã này để hoàn tất quá trình đăng ký.</p>
+        <p>Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
+      `
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(`✅ Email xác minh đã được gửi tới ${user.email}`);
+    } catch (emailError) {
+      console.error("❌ Gửi email thất bại:", emailError);
+      return res.status(500).json({
+        message: "Đăng ký thành công nhưng không thể gửi email xác minh. Vui lòng thử lại sau."
+      });
+    }
+
     const secret = process.env.JWT_SECRET || 'devsecret';
-    const token = jwt.sign({ id: user._id }, secret, {
-      expiresIn: '30d'
-    });
+    const token = jwt.sign({ id: user._id }, secret, { expiresIn: '30d' });
 
-    // SUCCESS RESPONSE: Trả về thông tin user VÀ token để đăng nhập luôn
     return res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
-      token: token,                      // Trả về token để đăng nhập luôn
-      message: "Đăng ký thành công"
+      token,
+      message: "Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản."
     });
+
   } catch (error) {
+    console.error("Register error:", error);
     return res.status(500).json({ message: "Lỗi máy chủ", error: error.message });
   }
 };
+
 
 // ADD USER - Admin thêm user mới (có thể set role và thông tin đầy đủ)
 export const addUser = async (req, res) => {
@@ -338,53 +359,49 @@ export const updateUser = async (req, res) => {
  * @access  Public
  */
 export const forgotPassword = async (req, res) => {
-  const { email } = req.body;
-
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "❌ Không tìm thấy email trong hệ thống" });
+    const { email } = req.body;
+
+    // 🔍 Kiểm tra xem email có tồn tại trong hệ thống không
+    const existingUser = await User.findOne({ email });
+    if (!existingUser) {
+      return res.status(404).json({ message: "Không tìm thấy tài khoản với email này" });
     }
 
-    const resetToken = crypto.randomBytes(20).toString("hex");
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 phút
-    await user.save();
+    // 🪄 Tạo token reset password
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    existingUser.resetPasswordToken = resetToken;
+    existingUser.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // Token hết hạn sau 10 phút
 
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+    await existingUser.save();
 
-    const transporter = nodemailer.createTransporter({
-      service: "gmail",
-      auth: {
-        user: process.env.SMTP_EMAIL,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    });
+    // 🔗 Tạo đường link reset password (frontend React)
+    const resetURL = `http://localhost:3000/reset-password/${resetToken}`;
 
+    // ✉️ Gửi email reset password
     const mailOptions = {
       from: process.env.SMTP_EMAIL,
-      to: user.email,
-      subject: "🔑 Reset mật khẩu",
+      to: existingUser.email,
+      subject: "Đặt lại mật khẩu - Movie Ticket System",
       html: `
-        <p>Bạn vừa yêu cầu đặt lại mật khẩu.</p>
-        <p>Click vào link dưới đây để reset:</p>
-        <a href="${resetUrl}">${resetUrl}</a>
-        <p>Link có hiệu lực trong 10 phút.</p>
+        <h2>Yêu cầu đặt lại mật khẩu</h2>
+        <p>Xin chào ${existingUser.name},</p>
+        <p>Bạn vừa yêu cầu đặt lại mật khẩu. Hãy nhấn vào liên kết bên dưới để đặt lại:</p>
+        <a href="${resetURL}" style="color: #ff4444;">${resetURL}</a>
+        <p>Liên kết này sẽ hết hạn sau 10 phút.</p>
+        <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
       `,
     };
 
     await transporter.sendMail(mailOptions);
-    res.json({ message: "📧 Email reset password đã được gửi" });
+
+    res.status(200).json({ message: "✅ Email đặt lại mật khẩu đã được gửi!" });
   } catch (error) {
     console.error("Forgot Password Error:", error);
-    if (user) {
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpire = undefined;
-      await user.save();
-    }
-    res.status(500).json({ message: "Có lỗi khi gửi email" });
+    res.status(500).json({ message: "❌ Lỗi khi gửi email. Vui lòng thử lại sau." });
   }
 };
+
 
 /**
  * @desc    Reset mật khẩu bằng token
