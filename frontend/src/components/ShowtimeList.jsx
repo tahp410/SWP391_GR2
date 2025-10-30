@@ -6,10 +6,11 @@ const ShowtimeList = () => {
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
+  const [searchDate, setSearchDate] = useState("");
   const [showtimes, setShowtimes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🏢 Lấy danh sách chi nhánh
+  // 🏦 Lấy danh sách chi nhánh
   useEffect(() => {
     const fetchBranches = async () => {
       try {
@@ -23,7 +24,7 @@ const ShowtimeList = () => {
     fetchBranches();
   }, []);
 
-  // 🎬 Lấy lịch chiếu (lọc theo chi nhánh + ngày)
+  // 🎬 Lấy danh sách suất chiếu
   useEffect(() => {
     const fetchShowtimes = async () => {
       setLoading(true);
@@ -31,39 +32,36 @@ const ShowtimeList = () => {
         const res = await fetch("http://localhost:5000/api/showtimes/public");
         let data = await res.json();
 
-        // 1️⃣ Ẩn suất chiếu đã qua
         const now = new Date();
         data = data.filter((item) => new Date(item.startTime) > now);
 
-        // 2️⃣ Lọc theo chi nhánh
         if (selectedBranch) {
           data = data.filter((item) => item.branch?._id === selectedBranch);
         }
 
-        // 3️⃣ Lọc theo ngày chiếu (cho phép nhập mm/dd/yyyy hoặc yyyy-mm-dd)
-        if (selectedDate) {
+        // 🗓️ Lọc theo ngày chiếu
+        if (searchDate) {
           let chosenDate;
-          if (selectedDate.includes("/")) {
-            // mm/dd/yyyy → yyyy-mm-dd
-            const [month, day, year] = selectedDate.split("/");
+          if (searchDate.includes("/")) {
+            const [day, month, year] = searchDate.split("/");
             chosenDate = new Date(`${year}-${month}-${day}`);
           } else {
-            chosenDate = new Date(selectedDate);
+            chosenDate = new Date(searchDate);
           }
 
-          const chosenDateString = chosenDate.toISOString().split("T")[0];
-
+          // ✅ So sánh phần ngày / tháng / năm để tránh lệch múi giờ
           data = data.filter((item) => {
-            const showDate = new Date(item.startTime)
-              .toISOString()
-              .split("T")[0];
-            return showDate === chosenDateString;
+            const show = new Date(item.startTime);
+            return (
+              show.getDate() === chosenDate.getDate() &&
+              show.getMonth() === chosenDate.getMonth() &&
+              show.getFullYear() === chosenDate.getFullYear()
+            );
           });
         }
 
-        // Sắp xếp theo thời gian gần nhất
+        // ⏰ Sắp xếp theo thời gian chiếu
         data.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-
         setShowtimes(data);
       } catch (err) {
         console.error("Error fetching showtimes:", err);
@@ -73,8 +71,28 @@ const ShowtimeList = () => {
     };
 
     fetchShowtimes();
-  }, [selectedBranch, selectedDate]);
+  }, [selectedBranch, searchDate]);
 
+  // 📅 Nhấn Enter để tìm
+  const handleDateKeyPress = (e) => {
+    if (e.key === "Enter") setSearchDate(selectedDate);
+  };
+
+  // 🔍 Nút tìm kiếm
+  const handleSearchClick = () => setSearchDate(selectedDate);
+
+  // 📆 Nút chọn lịch
+  const handleCalendarChange = (e) => {
+    const value = e.target.value;
+    if (value) {
+      const [year, month, day] = value.split("-");
+      const formattedDate = `${day}/${month}/${year}`;
+      setSelectedDate(formattedDate);
+      setSearchDate(formattedDate);
+    }
+  };
+
+  // 🕐 Hiển thị khi đang tải
   if (loading) {
     return (
       <div className="cgv-container showtime-loading">
@@ -84,6 +102,7 @@ const ShowtimeList = () => {
     );
   }
 
+  // 🧾 Hiển thị danh sách
   return (
     <div className="cgv-container">
       <Header />
@@ -115,18 +134,42 @@ const ShowtimeList = () => {
 
           <div className="filter-item">
             <label>Ngày chiếu:</label>
-            <input
-              type="text"
-              placeholder="mm/dd/yyyy hoặc yyyy-mm-dd"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
+            <div className="search-wrapper">
+              <button
+                type="button"
+                className="calendar-btn"
+                onClick={() => document.getElementById("hidden-calendar").showPicker()}
+              >
+                📅
+              </button>
+
+              <input
+                type="text"
+                placeholder="dd/mm/yyyy"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                onKeyDown={handleDateKeyPress}
+              />
+
+              <input
+                type="date"
+                id="hidden-calendar"
+                className="hidden-calendar"
+                onChange={handleCalendarChange}
+              />
+
+              <button className="search-btn" onClick={handleSearchClick}>
+                🔍
+              </button>
+            </div>
           </div>
         </div>
 
         {/* 🧾 Danh sách suất chiếu */}
         {showtimes.length === 0 ? (
-          <div className="empty-text">Không có suất chiếu phù hợp!</div>
+          <div className="empty-text">
+            Hình như không có suất chiếu nào phù hợp rồi 😢
+          </div>
         ) : (
           <div className="showtime-grid">
             {showtimes.map((item) => (

@@ -1,5 +1,5 @@
 import express from 'express';
-import Showtime from '../models/showtimeModel.js'; // 👈 cần import thêm dòng này
+import Showtime from '../models/showtimeModel.js';
 import {
   getShowtimes,
   getShowtimeById,
