@@ -50,8 +50,8 @@
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 2rem;
   max-width: 1200px;
-  margin: 0 auto 4rem;
-  padding: 0 1rem;
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
 }
 
 /* Card phim */
@@ -182,6 +182,84 @@
 .filter-item input[type="text"]:focus {
   border-color: #4ecdc4;
   box-shadow: 0 0 8px rgba(78, 205, 196, 0.3);
+}
+
+/* ================================
+   🎯 Ô tìm kiếm ngày (gộp 3 phần trong 1 box)
+   ================================ */
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.search-wrapper:hover {
+  border-color: #4ecdc4;
+}
+
+/* input nằm giữa, chừa chỗ bên trái cho nút lịch */
+.search-wrapper input[type="text"] {
+  flex: 1;
+  background: transparent;
+  color: #fff;
+  padding: 10px 50px 10px 45px; /* chừa khoảng bên trái cho nút 📅 */
+  font-size: 0.95rem;
+  border: none;
+  outline: none;
+}
+
+.search-wrapper input[type="text"]::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 📅 Nút mở lịch - chuyển sang bên trái */
+.calendar-btn {
+  position: absolute;
+  left: 5px;
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: 0.2s;
+  padding: 6px 8px;
+}
+
+.calendar-btn:hover {
+  color: #4ecdc4;
+}
+
+/* 🔍 Nút tìm kiếm - đổi sang màu xám nhạt */
+.search-btn {
+  position: absolute;
+  right: 5px;
+  background: #2a2a2a; /* đổi từ xanh sang xám trung tính */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.search-btn:hover {
+  background: #777; /* hover sáng hơn nhẹ */
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15);
+}
+
+/* Ẩn input date thật */
+.hidden-calendar {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Responsive */

@@ -6,7 +6,6 @@ import {
   Trash2,
   Calendar,
   Percent,
-  Tag,
   Eye,
   X,
 } from "lucide-react";
