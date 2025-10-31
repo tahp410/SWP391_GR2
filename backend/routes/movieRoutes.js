@@ -1,5 +1,6 @@
 import express from "express";
 import protect, { adminOnly } from "../middleware/authMiddleware.js";
+import Movie from "../models/movieModel.js";
 import {
   getAllMovies,
   getMovieById,
@@ -29,6 +30,15 @@ router.get("/now-showing", async (req, res) => {
     res.json(movies);
   } catch (err) {
     res.status(500).json({ message: "Lỗi khi lấy phim đang chiếu" });
+  }
+});
+
+router.get("/coming-soon", async (req, res) => {
+  try {
+    const movies = await Movie.find({ status: "coming-soon" });
+    res.json(movies);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi khi lấy phim sắp chiếu" });
   }
 });
 

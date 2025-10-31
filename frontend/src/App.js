@@ -5,6 +5,8 @@ import ChangePassword from './changePassword';
 import HomePage from "./components/HomePage";
 import Profile from "./components/Profile";
 import MoviesPage from "./components/MoviesPage";
+import MovieDetail from "./components/MovieDetail";
+import BookingFlow from "./components/BookingFlow";
 import BranchManagement from "./components/Admin/BranchManagement";
 import AdminDashboard from "./components/Admin/AdminDashboard";
 import VoucherManagement from "./components/Admin/VoucherManagement";
@@ -75,6 +77,8 @@ const AppInner = () => {
 
         {/* Public Routes */}
         <Route path="/movies" element={isAuthenticated ? <MoviesPage /> : <Navigate to="/"/>} />
+        <Route path="/movies/:id" element={isAuthenticated ? <MovieDetail /> : <Navigate to="/"/>} />
+        <Route path="/booking/:movieId" element={isAuthenticated ? <BookingFlow /> : <Navigate to="/"/>} />
         <Route path="/cinemas" element={isAuthenticated ? <div>Cinemas Page - Coming Soon</div> : <Navigate to="/"/>} />
 
         {/* ✅ Sửa route này để hiển thị ShowtimeList thay vì "Coming Soon" */}

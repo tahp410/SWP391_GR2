@@ -16,6 +16,8 @@ import comboRoutes from "./routes/comboRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import theaterRoutes from "./routes/theaterRoutes.js";
 import showtimeRoutes from "./routes/showtimeRoutes.js";
+import bookingRoutes from "./routes/bookingRoutes.js";
+import { releaseExpiredHolds } from "./controllers/bookingController.js";
 
 // ES modules equivalent của __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -57,6 +59,7 @@ app.use("/api/combos", comboRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/theaters", theaterRoutes);
 app.use("/api/showtimes", showtimeRoutes);
+app.use("/api/bookings", bookingRoutes);
 // Route test
 app.get("/", (req, res) => {
   res.send("🚀 Backend server is running!");
@@ -66,3 +69,12 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Server is running on http://localhost:${PORT}`);
 });
+
+// Background job: release expired holds every minute
+setInterval(async () => {
+  try {
+    await releaseExpiredHolds();
+  } catch (e) {
+    console.error("releaseExpiredHolds job error:", e.message);
+  }
+}, 60 * 1000);

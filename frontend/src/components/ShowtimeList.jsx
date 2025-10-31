@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "./Header";
 import "../style/showtimes.css";
 
 const ShowtimeList = () => {
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState("");
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState("");
   const [searchDate, setSearchDate] = useState("");
   const [showtimes, setShowtimes] = useState([]);
@@ -207,7 +209,24 @@ const ShowtimeList = () => {
                       : "—"}
                   </p>
 
-                  <button className="book-btn">Đặt vé ngay</button>
+                  <button
+                    className="book-btn"
+                    onClick={() => {
+                      const movieId = item.movie?._id || item.movie?.id;
+                      const branchId = item.branch?._id;
+                      const start = item.startTime ? new Date(item.startTime) : null;
+                      const yyyyMmDd = start ? `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}` : '';
+                      if (movieId) {
+                        const qp = [];
+                        if (branchId) qp.push(`branchId=${branchId}`);
+                        if (yyyyMmDd) qp.push(`date=${yyyyMmDd}`);
+                        const qs = qp.length ? `?${qp.join('&')}` : '';
+                        navigate(`/booking/${movieId}${qs}`);
+                      }
+                    }}
+                  >
+                    Đặt vé ngay
+                  </button>
                 </div>
               </div>
             ))}

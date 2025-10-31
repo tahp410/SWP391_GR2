@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Star, Calendar, Clock, MapPin, X } from 'lucide-react';
 import Header from './Header';
 import '../style/moviesPage.css';
@@ -12,6 +13,8 @@ const MoviesPage = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [showtimes, setShowtimes] = useState([]);
+
+  const navigate = useNavigate();
 
   // Fetch movies
   const fetchMovies = useCallback(async () => {
@@ -222,6 +225,8 @@ const MoviesPage = () => {
                       className="btn-book-ticket"
                       onClick={(e) => {
                         e.stopPropagation();
+                        const id = movie._id || movie.id;
+                        navigate(`/booking/${id}`);
                       }}
                     >
                       Đặt vé
@@ -339,6 +344,8 @@ const MoviesPage = () => {
                             className="book-button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              const id = selectedMovie._id || selectedMovie.id;
+                              navigate(`/booking/${id}`);
                             }}
                           >
                             Đặt vé
@@ -363,6 +370,8 @@ const MoviesPage = () => {
                   </button>
                   <button className="book-ticket-button" onClick={(e) => {
                     e.stopPropagation();
+                    const id = selectedMovie._id || selectedMovie.id;
+                    navigate(`/booking/${id}`);
                   }}>
                     Đặt vé
                   </button>
