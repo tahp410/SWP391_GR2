@@ -23,7 +23,7 @@ const router = express.Router();
 // @access  Public
 router.get('/public', async (req, res) => {
   try {
-    const { branchId, date } = req.query;
+    const { branchId, date, movieId } = req.query;
 
     // Điều kiện cơ bản: chỉ lấy showtime đang active
     const now = new Date();
@@ -40,6 +40,9 @@ router.get('/public', async (req, res) => {
       endOfDay.setHours(23, 59, 59, 999);
       filter.startTime = { $gte: startOfDay, $lte: endOfDay };
     }
+
+    // Nếu có filter theo movie
+    if (movieId) filter.movie = movieId;
 
     const showtimes = await Showtime.find(filter)
       .populate('movie', 'title duration genre poster rating')
