@@ -23,6 +23,7 @@ import ShowtimeList from './components/ShowtimeList'; // ✅ Thêm dòng này
 import PurchasePage from './components/PurchasePage';
 import UserPurchaseHistory from './components/UserPurchaseHistory';
 import AdminPurchaseHistory from './components/Admin/AdminPurchaseHistory';
+import CheckInPage from './components/Employee/CheckInPage';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
@@ -31,7 +32,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
 
 const AppInner = () => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, getUserRole } = useAuth();
+  const isEmployee = isAuthenticated && (getUserRole() === 'employee' || getUserRole() === 'admin');
 
   return (
     <Router>
@@ -136,6 +138,12 @@ const AppInner = () => {
         <Route 
           path="/admin/vouchers" 
           element={isAdmin ? <VoucherManagement /> : <Navigate to="/home" />} 
+        />
+
+        {/* Employee Routes */}
+        <Route 
+          path="/checkin" 
+          element={isEmployee ? <CheckInPage /> : <Navigate to="/home" />} 
         />
 
         {/* 404 Route */}

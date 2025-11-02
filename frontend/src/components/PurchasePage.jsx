@@ -23,12 +23,24 @@ export default function PurchasePage() {
   const [paymentStatus, setPaymentStatus] = useState(null); // 'success', 'failed', 'pending', null
   const [notification, setNotification] = useState(null);
   const [qrCode, setQrCode] = useState(null);
+  const [ticketQRCode, setTicketQRCode] = useState(null);
   const [bankInfo, setBankInfo] = useState(null);
   const [showQRCode, setShowQRCode] = useState(false);
 
   useEffect(() => {
     fetchBooking();
   }, [bookingId]);
+
+  // Auto refresh khi payment pending hoặc success nhưng chưa có ticketQRCode
+  useEffect(() => {
+    if (paymentStatus === 'pending' || (paymentStatus === 'success' && !ticketQRCode)) {
+      const interval = setInterval(() => {
+        fetchBooking();
+      }, 3000); // Refresh mỗi 3 giây
+
+      return () => clearInterval(interval);
+    }
+  }, [paymentStatus, ticketQRCode, bookingId]);
 
   const fetchBooking = async () => {
     try {
@@ -37,10 +49,20 @@ export default function PurchasePage() {
       });
       setBooking(data.booking);
       
-      // Show QR code if it exists
-      if (data.booking.qrCode) {
+      // Show payment QR code if exists and payment not completed
+      if (data.booking.qrCode && data.booking.paymentStatus !== 'completed') {
         setQrCode(data.booking.qrCode);
         setShowQRCode(true);
+      } else {
+        setShowQRCode(false);
+      }
+      
+      // Show ticket QR code if payment completed
+      if (data.booking.ticketQRCode && data.booking.paymentStatus === 'completed') {
+        console.log('Found ticket QR code:', data.booking.ticketQRCode.substring(0, 50) + '...');
+        setTicketQRCode(data.booking.ticketQRCode);
+      } else if (data.booking.paymentStatus === 'completed' && !data.booking.ticketQRCode) {
+        console.log('Payment completed but ticketQRCode not found');
       }
       
       // Set bank info
@@ -461,15 +483,56 @@ export default function PurchasePage() {
               </div>
             )}
 
-            {/* Completed Status */}
+            {/* Completed Status with Ticket QR Code */}
             {paymentStatus === 'success' && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-semibold mb-4 text-green-600">Payment Completed</h2>
                 <div className="flex flex-col items-center justify-center py-6">
                   <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
-                  <p className="text-center text-gray-700">
+                  <p className="text-center text-gray-700 mb-4">
                     Your payment has been confirmed. Your tickets are ready!
                   </p>
+                  
+                  {/* Ticket QR Code - Hiển thị QR code vé */}
+                  {ticketQRCode && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg w-full">
+                      <h3 className="text-lg font-semibold mb-2 text-center">Your Ticket QR Code</h3>
+                      <p className="text-sm text-gray-600 mb-3 text-center">
+                        Show this QR code at the cinema for check-in
+                      </p>
+                      <div className="bg-white p-4 rounded-lg border-2 border-blue-500 shadow-sm flex justify-center">
+                        <img 
+                          src={ticketQRCode} 
+                          alt="Ticket QR Code" 
+                          className="w-64 h-64" 
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-3 text-center">
+                        Booking ID: {booking._id.substring(0, 8)}
+                      </p>
+                      {booking.seats && booking.seats.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1 text-center">
+                          Seats: {booking.seats.map(s => `${s.row}${s.number}`).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Nếu chưa có QR code, hiển thị thông báo và button refresh */}
+                  {!ticketQRCode && (
+                    <div className="mt-4 text-center">
+                      <p className="text-sm text-gray-500 mb-3">
+                        Ticket QR code is being generated...
+                      </p>
+                      <button
+                        onClick={fetchBooking}
+                        disabled={loading}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                      >
+                        {loading ? 'Refreshing...' : 'Refresh QR Code'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
