@@ -40,10 +40,13 @@ const VoucherPage = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
+  // form-local error for showing errors inside modal form
+  const [formError, setFormError] = useState("");
+
   const [formData, setFormData] = useState({
     code: "",
     description: "",
-    discountType: "Percentage", // "percentage" or "fixed"
+    discountType: "percentage", // "percentage" or "fixed"
     discountValue: "", // number
     minPurchase: "",
     maxDiscount: "",
@@ -96,6 +99,19 @@ const VoucherPage = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    // Khi người dùng đổi kiểu giảm giá
+    if (name === "discountType") {
+      setFormData((prev) => ({
+        ...prev,
+        discountType: value,
+        // Nếu chọn fixed → reset maxDiscount về "" (rỗng) để input không hiển thị 0
+        // Nếu chọn percentage → giữ nguyên giá trị trước đó
+        maxDiscount: value === "fixed" ? "" : prev.maxDiscount,
+      }));
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -106,6 +122,9 @@ const VoucherPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // reset form-local error
+    setFormError("");
+
     // basic client validation
     if (
       !formData.code ||
@@ -115,7 +134,21 @@ const VoucherPage = () => {
       !formData.endDate ||
       !formData.discountType
     ) {
-      showMessage("error", "Vui lòng điền đủ các trường bắt buộc.");
+      setFormError("⚠️ Vui lòng điền đủ các trường bắt buộc.");
+      return;
+    }
+
+    // 🧮 Validate giảm giá không vượt quá 100% khi là percentage
+    if (formData.discountType === "percentage" && Number(formData.discountValue) > 100) {
+      setFormError("⚠️ Giá trị giảm theo phần trăm không được vượt quá 100%.");
+      return;
+    }
+
+    // 🗓️ Validate ngày hợp lý
+    const start = new Date(formData.startDate);
+    const end = new Date(formData.endDate);
+    if (start > end) {
+      setFormError("⚠️ Ngày bắt đầu không được sau ngày kết thúc.");
       return;
     }
 
@@ -126,14 +159,14 @@ const VoucherPage = () => {
       discountValue: Number(formData.discountValue),
       minPurchase: formData.minPurchase ? Number(formData.minPurchase) : 0,
       maxDiscount: formData.maxDiscount ? Number(formData.maxDiscount) : 0,
-      startDate: formData.startDate, // 'YYYY-MM-DD' is OK for backend
+      startDate: formData.startDate,
       endDate: formData.endDate,
       isActive: !!formData.isActive,
     };
 
     const token = getToken();
     if (!token) {
-      showMessage("error", "Bạn chưa đăng nhập hoặc token không hợp lệ.");
+      setFormError("⚠️ Bạn chưa đăng nhập hoặc token không hợp lệ.");
       return;
     }
 
@@ -153,10 +186,9 @@ const VoucherPage = () => {
 
         const resJson = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showMessage("error", resJson.message || "Lỗi khi cập nhật voucher");
+          setFormError(resJson.message || "Lỗi khi cập nhật voucher");
           return;
         }
-        // update local state
         setVouchers((prev) => prev.map((v) => (v._id === selectedVoucher._id ? resJson : v)));
         showMessage("success", "Cập nhật voucher thành công");
       } else {
@@ -172,17 +204,18 @@ const VoucherPage = () => {
 
         const resJson = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showMessage("error", resJson.message || "Lỗi khi tạo voucher");
+          setFormError(resJson.message || "Lỗi khi tạo voucher");
           return;
         }
         setVouchers((prev) => [...prev, resJson]);
         showMessage("success", "Tạo voucher thành công");
       }
 
+      setFormError("");
       closeModal();
     } catch (err) {
       console.error(err);
-      showMessage("error", "Lỗi kết nối server");
+      setFormError("⚠️ Lỗi kết nối server.");
     } finally {
       setLoading(false);
     }
@@ -190,10 +223,12 @@ const VoucherPage = () => {
 
   const handleEdit = (v) => {
     setSelectedVoucher(v);
+    // clear previous form error when opening edit modal
+    setFormError("");
     setFormData({
       code: v.code || "",
       description: v.description || "",
-      discountType: v.discountType || "Percentage",
+      discountType: v.discountType || "percentage",
       discountValue: v.discountValue != null ? String(v.discountValue) : "",
       minPurchase: v.minPurchase != null ? String(v.minPurchase) : "",
       maxDiscount: v.maxDiscount != null ? String(v.maxDiscount) : "",
@@ -241,6 +276,7 @@ const VoucherPage = () => {
   const closeModal = () => {
     setShowModal(false);
     setSelectedVoucher(null);
+    setFormError("");
     setFormData({
       code: "",
       description: "",
@@ -264,11 +300,10 @@ const VoucherPage = () => {
 
         {message.text && (
           <div
-            className={`mb-4 p-4 rounded-lg ${
-              message.type === "success"
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
-            }`}
+            className={`mb-4 p-4 rounded-lg ${message.type === "success"
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+              }`}
           >
             {message.text}
           </div>
@@ -286,7 +321,7 @@ const VoucherPage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <button onClick={() => setShowModal(true)} className="btn btn-primary flex items-center gap-2">
+            <button onClick={() => { setFormError(""); setShowModal(true); }} className="btn btn-primary flex items-center gap-2">
               <Plus size={18} /> Thêm Voucher
             </button>
           </div>
@@ -357,6 +392,13 @@ const VoucherPage = () => {
                 <button onClick={closeModal} className="modal-close"><X size={20} /></button>
               </div>
               <div className="modal-body">
+                {/* show form-local error here so it appears inside modal */}
+                {formError && (
+                  <div className="bg-red-100 text-red-700 px-3 py-2 rounded text-sm mb-3">
+                    {formError}
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="form-group">
                     <label className="form-label">Mã Voucher *</label>
@@ -390,7 +432,23 @@ const VoucherPage = () => {
                     </div>
                     <div>
                       <label className="form-label">Max discount</label>
-                      <input name="maxDiscount" value={formData.maxDiscount} onChange={handleInputChange} type="number" className="form-input" />
+                      <input
+                        name="maxDiscount"
+                        value={
+                          formData.discountType === "fixed"
+                            ? ""
+                            : formData.maxDiscount
+                        }
+                        onChange={handleInputChange}
+                        type="number"
+                        disabled={formData.discountType === "fixed"}
+                        placeholder={
+                          formData.discountType === "fixed"
+                            ? "Không áp dụng cho fixed"
+                            : "Nhập giới hạn giảm tối đa"
+                        }
+                        className="form-input"
+                      />
                     </div>
                   </div>
 
