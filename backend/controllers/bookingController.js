@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import QRCode from "qrcode";
 import Showtime from "../models/showtimeModel.js";
 import Seat from "../models/seatModel.js";
 import Theater from "../models/theaterModel.js";
@@ -272,6 +273,27 @@ export const createBooking = async (req, res) => {
       }
     }
 
+    // Generate QR code data with bank account information
+    const qrData = JSON.stringify({
+      type: "bank_transfer",
+      accountName: "CINEMA BOOKING SYSTEM",
+      accountNumber: "19036780036015",
+      bankCode: "TCB",
+      bankName: "Techcombank",
+      amount: total - discountAmount,
+      bookingId: null, // Will be set after booking creation
+      timestamp: new Date().toISOString(),
+      content: `Payment for booking`
+    });
+    
+    // Generate QR code as data URL
+    let qrCodeDataUrl = null;
+    try {
+      qrCodeDataUrl = await QRCode.toDataURL(qrData);
+    } catch (qrErr) {
+      console.error("QR code generation error:", qrErr);
+    }
+
     const bookingDoc = await Booking.create({
       user: userId,
       showtime: showtimeId,
@@ -280,10 +302,32 @@ export const createBooking = async (req, res) => {
       combos: combosNormalized,
       voucher: voucherDoc?._id || null,
       discountAmount,
-      paymentStatus: "pending",
+      paymentStatus: null, // Not paid yet
       bookingStatus: "confirmed",
+      qrCode: qrCodeDataUrl,
       customerInfo: customerInfo || undefined,
     });
+    
+    // Update QR code with booking ID
+    const updatedQrData = JSON.stringify({
+      type: "bank_transfer",
+      accountName: "CINEMA BOOKING SYSTEM",
+      accountNumber: "19036780036015",
+      bankCode: "TCB",
+      bankName: "Techcombank",
+      amount: total - discountAmount,
+      bookingId: bookingDoc._id.toString(),
+      transactionId: `TXN-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      content: `Payment for booking ${bookingDoc._id.toString().substring(0, 8)}`
+    });
+    
+    try {
+      bookingDoc.qrCode = await QRCode.toDataURL(updatedQrData);
+      await bookingDoc.save();
+    } catch (qrErr) {
+      console.error("QR code update error:", qrErr);
+    }
 
     // Mark seats as booked atomically (only if currently reserved)
     const upd = await SeatStatus.updateMany(
@@ -313,6 +357,698 @@ export const releaseExpiredHolds = async () => {
     },
     { $set: { status: "available" }, $unset: { reservedBy: 1, reservedAt: 1, reservationExpires: 1 } }
   );
+};
+
+// Get booking by ID for purchase page
+export const getBookingById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?._id || null;
+    
+    const booking = await Booking.findById(id)
+      .populate("user", "name email")
+      .populate("showtime")
+      .populate({
+        path: "showtime",
+        populate: [
+          { path: "movie", select: "title poster duration" },
+          { path: "theater", select: "name" },
+          { path: "branch", select: "name address" }
+        ]
+      })
+      .populate("voucher", "code discountType discountValue")
+      .populate("combos.combo", "name");
+    
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    
+    // Check if user owns this booking (unless admin)
+    if (userId && String(booking.user?._id || booking.user) !== String(userId) && req.user?.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    
+    res.json({ booking });
+  } catch (err) {
+    console.error("getBookingById error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Generate QR code for payment (with bank info)
+export const generatePaymentQR = async (req, res) => {
+  try {
+    const { bookingId, paymentMethod } = req.body;
+    const userId = req.user?._id || null;
+    
+    if (!bookingId || !paymentMethod) {
+      return res.status(400).json({ message: "bookingId and paymentMethod are required" });
+    }
+    
+    const booking = await Booking.findById(bookingId).populate('showtime');
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    
+    // Check ownership
+    if (userId && String(booking.user || booking.user?._id) !== String(userId)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    
+    if (booking.paymentStatus === "completed") {
+      return res.status(400).json({ message: "Payment already completed" });
+    }
+    
+    // Generate QR code data with bank account information
+    const qrData = JSON.stringify({
+      type: "bank_transfer",
+      accountName: "CINEMA BOOKING SYSTEM",
+      accountNumber: "19036780036015",
+      bankCode: "TCB",
+      bankName: "Techcombank",
+      amount: booking.totalAmount,
+      bookingId: booking._id.toString(),
+      transactionId: `TXN-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      content: `Payment for booking ${booking._id.toString().substring(0, 8)}`
+    });
+    
+    // Generate QR code as data URL
+    let qrCodeDataUrl;
+    try {
+      qrCodeDataUrl = await QRCode.toDataURL(qrData);
+    } catch (qrErr) {
+      console.error("QR code generation error:", qrErr);
+      qrCodeDataUrl = null;
+    }
+    
+    // Store payment method and QR code (but don't mark as completed yet)
+    booking.paymentMethod = paymentMethod;
+    booking.qrCode = qrCodeDataUrl;
+    await booking.save();
+    
+    return res.json({
+      success: true,
+      message: "QR code generated",
+      booking: booking,
+      qrCode: qrCodeDataUrl,
+      qrData: qrData,
+      bankInfo: {
+        accountName: "CINEMA BOOKING SYSTEM",
+        accountNumber: "19036780036015",
+        bankName: "Techcombank",
+        amount: booking.totalAmount
+      }
+    });
+  } catch (err) {
+    console.error("generatePaymentQR error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Mark payment as purchased (user confirms they've paid)
+export const markAsPurchased = async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+    const userId = req.user?._id || null;
+    
+    if (!bookingId) {
+      return res.status(400).json({ message: "bookingId is required" });
+    }
+    
+    const booking = await Booking.findById(bookingId).populate('showtime');
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    
+    // Check ownership
+    if (userId && String(booking.user || booking.user?._id) !== String(userId)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    
+    if (booking.paymentStatus === "completed") {
+      return res.status(400).json({ message: "Payment already completed" });
+    }
+    
+    // Lock seats for 24 hours while waiting for admin confirmation
+    const showtimeId = booking.showtime?._id || booking.showtime;
+    if (!showtimeId) {
+      return res.status(400).json({ message: "Showtime not found" });
+    }
+    
+    // Get seat IDs from booking - find seats by row and number
+    const showtimeDoc = await Showtime.findById(showtimeId).populate('theater');
+    const theaterId = showtimeDoc?.theater?._id || showtimeDoc?.theater;
+    
+    if (!theaterId) {
+      return res.status(400).json({ message: "Theater not found" });
+    }
+    
+    // Find seats by matching row and number
+    const seatDocs = await Seat.find({
+      theater: theaterId,
+      $or: booking.seats.map(s => ({ row: s.row, number: s.number }))
+    });
+    
+    if (seatDocs.length !== booking.seats.length) {
+      return res.status(400).json({ message: "Some seats not found" });
+    }
+    
+    const seatIds = seatDocs.map(s => s._id);
+    const lockExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+    
+    // Lock seats by setting status to "blocked" for 24 hours
+    await SeatStatus.updateMany(
+      { 
+        showtime: showtimeId, 
+        seat: { $in: seatIds }
+      },
+      { 
+        $set: { 
+          status: "blocked",
+          reservationExpires: lockExpiresAt,
+          reservedBy: userId,
+          reservedAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+    
+    // Set status to pending - waiting for admin confirmation
+    booking.paymentStatus = "pending";
+    booking.bookingStatus = "pending";
+    booking.transactionId = booking.transactionId || `TXN-${Date.now()}`;
+    await booking.save();
+    
+    return res.json({
+      success: true,
+      message: "Payment marked as purchased. Seats locked for 24 hours. Waiting for admin confirmation.",
+      booking: booking,
+      lockExpiresAt: lockExpiresAt
+    });
+  } catch (err) {
+    console.error("markAsPurchased error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Cancel payment - release seats and reset statuses
+export const cancelPayment = async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+    const userId = req.user?._id || null;
+    
+    if (!bookingId) {
+      return res.status(400).json({ message: "bookingId is required" });
+    }
+    
+    const booking = await Booking.findById(bookingId).populate('showtime');
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    
+    // Check ownership
+    if (userId && String(booking.user || booking.user?._id) !== String(userId)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    
+    if (booking.paymentStatus === "completed") {
+      return res.status(400).json({ message: "Cannot cancel completed payment" });
+    }
+    
+    // Release seats - make them available again
+    const showtimeId = booking.showtime?._id || booking.showtime;
+    if (showtimeId) {
+      const showtimeDoc = await Showtime.findById(showtimeId).populate('theater');
+      const theaterId = showtimeDoc?.theater?._id || showtimeDoc?.theater;
+      
+      if (theaterId) {
+        const seatDocs = await Seat.find({
+          theater: theaterId,
+          $or: booking.seats.map(s => ({ row: s.row, number: s.number }))
+        });
+        
+        const seatIds = seatDocs.map(s => s._id);
+        
+        // Release seats by setting status to "available"
+        await SeatStatus.updateMany(
+          { 
+            showtime: showtimeId, 
+            seat: { $in: seatIds }
+          },
+          { 
+            $set: { status: "available" },
+            $unset: { 
+              reservedBy: 1, 
+              reservedAt: 1, 
+              reservationExpires: 1,
+              booking: 1
+            }
+          }
+        );
+      }
+    }
+    
+    // Reset booking statuses to previous state
+    booking.paymentStatus = null; // Reset to not paid
+    booking.bookingStatus = "confirmed"; // Keep booking confirmed but payment not paid
+    booking.transactionId = null;
+    await booking.save();
+    
+    return res.json({
+      success: true,
+      message: "Payment cancelled. Seats released.",
+      booking: booking
+    });
+  } catch (err) {
+    console.error("cancelPayment error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Admin confirms or rejects payment
+export const confirmPayment = async (req, res) => {
+  try {
+    const { bookingId, action } = req.body; // action: 'approve' or 'reject'
+    
+    if (!bookingId || !action) {
+      return res.status(400).json({ message: "bookingId and action (approve/reject) are required" });
+    }
+    
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ message: "action must be 'approve' or 'reject'" });
+    }
+    
+    const booking = await Booking.findById(bookingId).populate('showtime');
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    
+    if (booking.paymentStatus !== "pending") {
+      return res.status(400).json({ message: "Only pending payments can be confirmed" });
+    }
+    
+    const showtimeId = booking.showtime?._id || booking.showtime;
+    
+    if (action === 'approve') {
+      // Approve: Mark payment as completed, keep seats booked
+      booking.paymentStatus = "completed";
+      booking.bookingStatus = "confirmed";
+      
+      // Generate ticket QR code for check-in
+      const ticketQRData = JSON.stringify({
+        type: "ticket",
+        bookingId: booking._id.toString(),
+        showtimeId: showtimeId.toString(),
+        seats: booking.seats.map(s => `${s.row}${s.number}`),
+        timestamp: new Date().toISOString(),
+      });
+      
+      try {
+        booking.ticketQRCode = await QRCode.toDataURL(ticketQRData);
+        console.log("Ticket QR code generated successfully for booking:", booking._id.toString());
+      } catch (qrErr) {
+        console.error("Ticket QR code generation error:", qrErr);
+      }
+      
+      // Ensure seats remain booked
+      if (showtimeId) {
+        const showtimeDoc = await Showtime.findById(showtimeId).populate('theater');
+        const theaterId = showtimeDoc?.theater?._id || showtimeDoc?.theater;
+        
+        if (theaterId) {
+          const seatDocs = await Seat.find({
+            theater: theaterId,
+            $or: booking.seats.map(s => ({ row: s.row, number: s.number }))
+          });
+          
+          const seatIds = seatDocs.map(s => s._id);
+          
+          // Keep seats booked
+          await SeatStatus.updateMany(
+            { 
+              showtime: showtimeId, 
+              seat: { $in: seatIds }
+            },
+            { 
+              $set: { 
+                status: "booked",
+                booking: booking._id
+              },
+              $unset: { 
+                reservedBy: 1, 
+                reservedAt: 1, 
+                reservationExpires: 1
+              }
+            }
+          );
+        }
+      }
+    } else {
+      // Reject: Mark payment as failed, release seats
+      booking.paymentStatus = "failed";
+      booking.bookingStatus = "cancelled";
+      
+      // Release seats
+      if (showtimeId) {
+        const showtimeDoc = await Showtime.findById(showtimeId).populate('theater');
+        const theaterId = showtimeDoc?.theater?._id || showtimeDoc?.theater;
+        
+        if (theaterId) {
+          const seatDocs = await Seat.find({
+            theater: theaterId,
+            $or: booking.seats.map(s => ({ row: s.row, number: s.number }))
+          });
+          
+          const seatIds = seatDocs.map(s => s._id);
+          
+          // Release seats by setting status to "available"
+          await SeatStatus.updateMany(
+            { 
+              showtime: showtimeId, 
+              seat: { $in: seatIds }
+            },
+            { 
+              $set: { status: "available" },
+              $unset: { 
+                reservedBy: 1, 
+                reservedAt: 1, 
+                reservationExpires: 1,
+                booking: 1
+              }
+            }
+          );
+        }
+      }
+    }
+    
+    await booking.save();
+    
+    // Populate booking trước khi return để có đầy đủ thông tin
+    await booking.populate([
+      { path: 'showtime', populate: ['movie', 'theater', 'branch'] },
+      { path: 'user', select: 'name email phone' }
+    ]);
+    
+    return res.json({
+      success: true,
+      message: action === 'approve' ? "Payment approved successfully" : "Payment rejected. Seats released.",
+      booking: booking
+    });
+  } catch (err) {
+    console.error("confirmPayment error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get user's purchase history
+export const getUserPurchaseHistory = async (req, res) => {
+  try {
+    const userId = req.user?._id || null;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const bookings = await Booking.find({ user: userId })
+      .populate("showtime")
+      .populate({
+        path: "showtime",
+        populate: [
+          { path: "movie", select: "title poster duration" },
+          { path: "theater", select: "name" },
+          { path: "branch", select: "name address" }
+        ]
+      })
+      .populate("voucher", "code discountType discountValue")
+      .populate("combos.combo", "name")
+      .sort({ createdAt: -1 });
+    
+    res.json({ bookings });
+  } catch (err) {
+    console.error("getUserPurchaseHistory error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get all purchase history (admin only)
+export const getAllPurchaseHistory = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, status, paymentStatus } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const filter = {};
+    if (status) filter.bookingStatus = status;
+    if (paymentStatus) filter.paymentStatus = paymentStatus;
+    
+    const bookings = await Booking.find(filter)
+      .populate("user", "name email phone")
+      .populate("showtime")
+      .populate({
+        path: "showtime",
+        populate: [
+          { path: "movie", select: "title poster duration" },
+          { path: "theater", select: "name" },
+          { path: "branch", select: "name address" }
+        ]
+      })
+      .populate("voucher", "code discountType discountValue")
+      .populate("combos.combo", "name")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await Booking.countDocuments(filter);
+    
+    res.json({
+      bookings,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (err) {
+    console.error("getAllPurchaseHistory error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get booking by QR code (for employee to preview before check-in)
+export const getBookingByQR = async (req, res) => {
+  try {
+    const { qrCodeData } = req.body;
+    
+    if (!qrCodeData) {
+      return res.status(400).json({ message: "QR code data is required" });
+    }
+    
+    // Parse QR code data - hỗ trợ cả JSON và Booking ID trực tiếp
+    let bookingId = qrCodeData.trim();
+    
+    // Thử parse JSON nếu có vẻ như JSON string
+    if (qrCodeData.trim().startsWith('{') || qrCodeData.trim().startsWith('[')) {
+      try {
+        const ticketData = JSON.parse(qrCodeData);
+        bookingId = ticketData.bookingId || bookingId;
+      } catch (parseErr) {
+        // Nếu parse lỗi nhưng có vẻ là JSON, vẫn dùng bookingId trực tiếp
+        console.log("Failed to parse QR data as JSON, using as booking ID");
+      }
+    }
+    
+    // Nếu bookingId là ObjectId format (24 hex characters), dùng trực tiếp
+    // Nếu không, thử tìm booking bằng partial ID
+    if (!bookingId) {
+      return res.status(400).json({ message: "Invalid QR code format or Booking ID" });
+    }
+    
+    let booking;
+    
+    // Thử tìm bằng full ObjectId (24 ký tự hex)
+    if (bookingId.length === 24 && /^[0-9a-fA-F]{24}$/.test(bookingId)) {
+      // Validate ObjectId và tìm bằng exact match
+      if (mongoose.Types.ObjectId.isValid(bookingId)) {
+        booking = await Booking.findById(bookingId);
+      } else {
+        return res.status(400).json({ 
+          message: `Booking ID không hợp lệ. Vui lòng nhập đúng định dạng ObjectId (24 ký tự hex).` 
+        });
+      }
+    } else if (bookingId.length < 24 && /^[0-9a-fA-F]+$/.test(bookingId)) {
+      // Nếu là partial ID (8 ký tự đầu), thử tìm bằng cách khác
+      // Tìm tất cả booking có ID bắt đầu bằng prefix này
+      const allBookings = await Booking.find({}).select('_id').limit(1000);
+      const matchingId = allBookings.find(b => 
+        b._id.toString().startsWith(bookingId.toLowerCase())
+      );
+      
+      if (matchingId) {
+        booking = await Booking.findById(matchingId._id);
+      }
+    } else {
+      return res.status(400).json({ 
+        message: `Booking ID không hợp lệ. Vui lòng nhập Booking ID (8 hoặc 24 ký tự hex). Bạn đã nhập: ${bookingId}` 
+      });
+    }
+    
+    if (!booking) {
+      return res.status(404).json({ message: `Không tìm thấy booking với ID: ${bookingId}` });
+    }
+    
+    // Populate booking data
+    await booking.populate([
+      { 
+        path: 'showtime',
+        populate: [
+          { path: 'movie', select: 'title poster duration' },
+          { path: 'theater', select: 'name' },
+          { path: 'branch', select: 'name address' }
+        ]
+      },
+      { path: 'user', select: 'name email phone' }
+    ]);
+    
+    return res.json({
+      success: true,
+      booking: booking
+    });
+  } catch (err) {
+    console.error("getBookingByQR error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Employee check-in ticket by scanning QR code
+export const checkInTicket = async (req, res) => {
+  try {
+    const { qrCodeData } = req.body; // QR code data từ scanner
+    const employeeId = req.user?._id;
+    
+    if (!qrCodeData) {
+      return res.status(400).json({ message: "QR code data is required" });
+    }
+    
+    if (!employeeId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    // Parse QR code data - hỗ trợ cả JSON và Booking ID trực tiếp
+    let bookingId = qrCodeData.trim();
+    
+    // Thử parse JSON nếu có vẻ như JSON string
+    if (qrCodeData.trim().startsWith('{') || qrCodeData.trim().startsWith('[')) {
+      try {
+        const ticketData = JSON.parse(qrCodeData);
+        bookingId = ticketData.bookingId || bookingId;
+      } catch (parseErr) {
+        console.log("Failed to parse QR data as JSON, using as booking ID");
+      }
+    }
+    
+    if (!bookingId) {
+      return res.status(400).json({ message: "Invalid QR code format or Booking ID" });
+    }
+    
+    // Tìm booking
+    let booking;
+    
+    // Thử tìm bằng full ObjectId (24 ký tự hex)
+    if (bookingId.length === 24 && /^[0-9a-fA-F]{24}$/.test(bookingId)) {
+      // Validate ObjectId và tìm bằng exact match
+      if (mongoose.Types.ObjectId.isValid(bookingId)) {
+        booking = await Booking.findById(bookingId);
+      } else {
+        return res.status(400).json({ 
+          message: `Booking ID không hợp lệ. Vui lòng nhập đúng định dạng ObjectId (24 ký tự hex).` 
+        });
+      }
+    } else if (bookingId.length < 24 && /^[0-9a-fA-F]+$/.test(bookingId)) {
+      // Nếu là partial ID (8 ký tự đầu), thử tìm bằng cách khác
+      // Tìm tất cả booking có ID bắt đầu bằng prefix này
+      const allBookings = await Booking.find({}).select('_id').limit(1000);
+      const matchingId = allBookings.find(b => 
+        b._id.toString().startsWith(bookingId.toLowerCase())
+      );
+      
+      if (matchingId) {
+        booking = await Booking.findById(matchingId._id);
+      }
+    } else {
+      return res.status(400).json({ 
+        message: `Booking ID không hợp lệ. Vui lòng nhập Booking ID (8 hoặc 24 ký tự hex). Bạn đã nhập: ${bookingId}` 
+      });
+    }
+    
+    if (!booking) {
+      return res.status(404).json({ message: `Không tìm thấy booking với ID: ${bookingId}` });
+    }
+    
+    // Populate booking data
+    await booking.populate([
+      { 
+        path: 'showtime',
+        populate: [
+          { path: 'movie', select: 'title poster duration' },
+          { path: 'theater', select: 'name' },
+          { path: 'branch', select: 'name address' }
+        ]
+      }
+    ]);
+    
+    // Kiểm tra payment status
+    if (booking.paymentStatus !== 'completed') {
+      return res.status(400).json({ 
+        message: "Cannot check in. Payment not completed.",
+        booking: booking
+      });
+    }
+    
+    // Kiểm tra đã check-in chưa
+    if (booking.checkedIn) {
+      return res.status(400).json({ 
+        message: "Ticket already checked in",
+        booking: booking,
+        checkedInAt: booking.checkedInAt
+      });
+    }
+    
+    // Kiểm tra showtime đã bắt đầu chưa (có thể cho phép check-in trước 30 phút)
+    const showtime = booking.showtime;
+    const now = new Date();
+    const showtimeStart = new Date(showtime.startTime);
+    const checkInWindow = new Date(showtimeStart.getTime() - 30 * 60 * 1000); // 30 phút trước khi bắt đầu
+    
+    if (now < checkInWindow) {
+      return res.status(400).json({ 
+        message: `Check-in available from ${checkInWindow.toLocaleString('vi-VN')}`,
+        booking: booking
+      });
+    }
+    
+    // Kiểm tra showtime đã kết thúc chưa
+    if (now > new Date(showtime.endTime)) {
+      return res.status(400).json({ 
+        message: "Showtime has already ended",
+        booking: booking
+      });
+    }
+    
+    // Thực hiện check-in
+    booking.checkedIn = true;
+    booking.checkedInAt = new Date();
+    booking.employeeId = employeeId;
+    await booking.save();
+    
+    return res.json({
+      success: true,
+      message: "Check-in successful",
+      booking: booking
+    });
+  } catch (err) {
+    console.error("checkInTicket error:", err);
+    res.status(500).json({ message: err.message });
+  }
 };
 
 

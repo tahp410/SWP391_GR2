@@ -66,6 +66,9 @@ const bookingSchema = mongoose.Schema(
     qrCode: {
       type: String,
     },
+    ticketQRCode: {
+      type: String,  // QR code cho vé check-in (khác với payment QR)
+    },
     checkedIn: {
       type: Boolean,
       default: false,

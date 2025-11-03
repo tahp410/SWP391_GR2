@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, User, ChevronDown } from 'lucide-react';
+import { LogOut, User, ChevronDown, ShoppingBag, QrCode } from 'lucide-react';
 import './Header.css';
 import { useAuth } from '../contexts/AuthContext';
 
 const Header = () => {
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const { user, getUserRole, isAdmin, logout } = useAuth();
+  const { user, getUserRole, isAdmin, isEmployee, logout } = useAuth();
 
   const userInfo = user || { name: 'User', email: 'user@cine.com' };
 
@@ -33,6 +33,12 @@ const Header = () => {
           <Link to="/movies" className="nav-link">Movies</Link>
           <Link to="/cinemas" className="nav-link">Cinemas</Link>
           <Link to="/showtimes" className="nav-link">Showtimes</Link>
+          {isEmployee && (
+            <Link to="/checkin" className="nav-link">
+              <QrCode size={18} className="inline mr-1" />
+              Check-in
+            </Link>
+          )}
           {isAdmin && (
             <Link to="/admin" className="nav-link admin-link">
               <span style={{ color: '#ffd700', fontWeight: 'bold' }}>⚙️ Admin</span>
@@ -116,6 +122,29 @@ const Header = () => {
                   >
                     🔒
                     <span>Đổi mật khẩu</span>
+                  </Link>
+                  
+                  <Link
+                    to="/purchase-history"
+                    className="menu-item"
+                    onClick={() => setShowUserMenu(false)}
+                    style={{
+                      display: 'flex',
+                      width: '100%',
+                      padding: '0.5rem 1rem',
+                      textAlign: 'left',
+                      color: '#374151',
+                      textDecoration: 'none',
+                      transition: 'background-color 0.2s',
+                      border: 'none',
+                      background: 'none',
+                      cursor: 'pointer',
+                      alignItems: 'center',
+                      gap: '0.75rem'
+                    }}
+                  >
+                    <ShoppingBag size={16} />
+                    <span>Purchase History</span>
                   </Link>
                 </div>
                 

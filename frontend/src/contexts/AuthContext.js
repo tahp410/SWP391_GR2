@@ -76,6 +76,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAdmin = isAuthenticated && getUserRole() === 'admin';
+  const isEmployee = isAuthenticated && (getUserRole() === 'employee' || getUserRole() === 'admin');
 
   const value = {
     isAuthenticated,
@@ -84,6 +85,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     getUserRole,
     isAdmin,
+    isEmployee,
     isInitialized
   };
 

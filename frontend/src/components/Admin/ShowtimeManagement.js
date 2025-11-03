@@ -122,6 +122,15 @@ const ShowtimeManagement = () => {
     }
   }, [getHeaders]);
 
+  const fetchShowtimes = async (theaterId) => {
+  try {
+    const res = await fetch(`${API_BASE}/showtimes/theater/${theaterId}`);
+    const data = await res.json();
+    setState(prev => ({ ...prev, showtimes: data }));
+  } catch (err) {
+    console.error(err);
+  }
+};
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Filter theaters by selected branch
