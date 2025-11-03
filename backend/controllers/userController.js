@@ -185,6 +185,11 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Email không tồn tại" }); // 401 Unauthorized
     }
 
+    // ACCOUNT LOCK CHECK: Chặn đăng nhập nếu tài khoản bị khóa
+    if (user.isLocked) {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên." });
+    }
+
     // PASSWORD VERIFICATION: Kiểm tra mật khẩu
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
@@ -271,7 +276,8 @@ export const getAllUsers = async (req, res) => {
       province: user.province, // Tỉnh/thành phố
       city: user.city,         // Quận/huyện
       dob: user.dob,           // Ngày sinh
-      createdAt: user.createdAt // Ngày tạo tài khoản
+      createdAt: user.createdAt, // Ngày tạo tài khoản
+      isLocked: user.isLocked   // Trạng thái khóa
     })));
   } catch (error) {
     // ERROR HANDLING: Xử lý lỗi server và trả về thông báo
@@ -295,6 +301,38 @@ export const deleteUser = async (req, res) => {
     return res.json({ message: 'Xóa người dùng thành công' });
   } catch (error) {
     // ERROR HANDLING: Lỗi có thể do ID không hợp lệ hoặc lỗi database
+    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+// LOCK USER - Khóa tài khoản (chỉ admin)
+export const lockUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByIdAndUpdate(
+      id,
+      { isLocked: true },
+      { new: true, runValidators: true }
+    );
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    return res.json({ message: 'Đã khóa tài khoản người dùng', isLocked: user.isLocked });
+  } catch (error) {
+    return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+// UNLOCK USER - Mở khóa tài khoản (chỉ admin)
+export const unlockUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByIdAndUpdate(
+      id,
+      { isLocked: false },
+      { new: true, runValidators: true }
+    );
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    return res.json({ message: 'Đã mở khóa tài khoản người dùng', isLocked: user.isLocked });
+  } catch (error) {
     return res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
 };
