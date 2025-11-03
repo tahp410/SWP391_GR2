@@ -20,6 +20,9 @@ import TheaterManagement from './components/Admin/TheaterManagement';
 import ShowtimeManagement from './components/Admin/ShowtimeManagement';
 import UserManagement from './components/Admin/UserManagement';
 import ShowtimeList from './components/ShowtimeList'; // ✅ Thêm dòng này
+import PurchasePage from './components/PurchasePage';
+import UserPurchaseHistory from './components/UserPurchaseHistory';
+import AdminPurchaseHistory from './components/Admin/AdminPurchaseHistory';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
@@ -79,6 +82,8 @@ const AppInner = () => {
         <Route path="/movies" element={isAuthenticated ? <MoviesPage /> : <Navigate to="/"/>} />
         <Route path="/movies/:id" element={isAuthenticated ? <MovieDetail /> : <Navigate to="/"/>} />
         <Route path="/booking/:movieId" element={isAuthenticated ? <BookingFlow /> : <Navigate to="/"/>} />
+        <Route path="/purchase/:bookingId" element={isAuthenticated ? <PurchasePage /> : <Navigate to="/"/>} />
+        <Route path="/purchase-history" element={isAuthenticated ? <UserPurchaseHistory /> : <Navigate to="/"/>} />
         <Route path="/cinemas" element={isAuthenticated ? <div>Cinemas Page - Coming Soon</div> : <Navigate to="/"/>} />
 
         {/* ✅ Sửa route này để hiển thị ShowtimeList thay vì "Coming Soon" */}
@@ -122,7 +127,7 @@ const AppInner = () => {
         />
         <Route 
           path="/admin/bookings" 
-          element={isAdmin ? <div>Booking Management - Coming Soon</div> : <Navigate to="/home" />} 
+          element={isAdmin ? <AdminPurchaseHistory /> : <Navigate to="/home" />} 
         />
         <Route 
           path="/admin/settings" 

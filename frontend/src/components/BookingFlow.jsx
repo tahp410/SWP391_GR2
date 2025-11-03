@@ -190,9 +190,14 @@ export default function BookingFlow() {
         { showtimeId: selectedShowtime._id, seats, combos: combosPayload, voucher: voucherId || null },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      alert('Đặt vé thành công');
-      setSelectedSeatIds([]);
-      await fetchSeats(selectedShowtime._id);
+      // Navigate to purchase page after successful booking
+      if (data?.booking?._id) {
+        navigate(`/purchase/${data.booking._id}`);
+      } else {
+        alert('Đặt vé thành công');
+        setSelectedSeatIds([]);
+        await fetchSeats(selectedShowtime._id);
+      }
     } catch (e) {
       const msg = e?.response?.data?.message || 'Đặt vé thất bại';
       alert(msg);

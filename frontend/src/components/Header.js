@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, User, ChevronDown } from 'lucide-react';
+import { LogOut, User, ChevronDown, ShoppingBag } from 'lucide-react';
 import './Header.css';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -116,6 +116,29 @@ const Header = () => {
                   >
                     🔒
                     <span>Đổi mật khẩu</span>
+                  </Link>
+                  
+                  <Link
+                    to="/purchase-history"
+                    className="menu-item"
+                    onClick={() => setShowUserMenu(false)}
+                    style={{
+                      display: 'flex',
+                      width: '100%',
+                      padding: '0.5rem 1rem',
+                      textAlign: 'left',
+                      color: '#374151',
+                      textDecoration: 'none',
+                      transition: 'background-color 0.2s',
+                      border: 'none',
+                      background: 'none',
+                      cursor: 'pointer',
+                      alignItems: 'center',
+                      gap: '0.75rem'
+                    }}
+                  >
+                    <ShoppingBag size={16} />
+                    <span>Purchase History</span>
                   </Link>
                 </div>
                 
