@@ -5,6 +5,11 @@ import Voucher from "../models/voucherModel.js";
 // @access  Admin
 export const createVoucher = async (req, res) => {
   try {
+    const existing = await Voucher.findOne({ code: req.body.code });
+    if (existing) {
+      return res.status(400).json({ message: "Mã voucher này đã tồn tại, vui lòng nhập mã khác." });
+    }
+
     const voucher = new Voucher(req.body);
     await voucher.save();
     res.status(201).json(voucher);
@@ -45,6 +50,14 @@ export const getVoucherById = async (req, res) => {
 // @access  Admin
 export const updateVoucher = async (req, res) => {
   try {
+    const existing = await Voucher.findOne({
+      code: req.body.code,
+      _id: { $ne: req.params.id },
+    });
+    if (existing) {
+      return res.status(400).json({ message: "Mã voucher này đã tồn tại, vui lòng nhập mã khác." });
+    }
+
     const voucher = await Voucher.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
     });
@@ -56,6 +69,7 @@ export const updateVoucher = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 // @desc    Delete voucher
 // @route   DELETE /api/vouchers/:id
