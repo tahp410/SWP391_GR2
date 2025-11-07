@@ -1,8 +1,4 @@
-// ============================================================================
-// USER CONTROLLER - Xử lý các API endpoints liên quan đến User Management
-// ============================================================================
 
-// 1. IMPORTS VÀ DEPENDENCIES
 import User from "../models/userModel.js"; // Model User để tương tác với MongoDB
 import jwt from "jsonwebtoken"; // Thư viện tạo và verify JWT tokens
 import bcrypt from "bcryptjs"; // Thư viện hash password để bảo mật
@@ -90,7 +86,7 @@ export const registerUser = async (req, res) => {
 };
 
 
-// ADD USER - Admin thêm user mới (có thể set role và thông tin đầy đủ)
+// ADD USER 
 export const addUser = async (req, res) => {
   try {
     // DESTRUCTURING với default values cho admin tạo user
@@ -172,7 +168,7 @@ export const addUser = async (req, res) => {
 // LOGIN USER - Đăng nhập tài khoản
 export const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
 
     // INPUT VALIDATION: Kiểm tra dữ liệu đầu vào
     if (!email || !password) {
@@ -196,10 +192,12 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Mật khẩu không đúng" });
     }
 
-    // JWT TOKEN GENERATION: Tạo token cho session
+    // JWT TOKEN GENERATION: Tạo token với thời gian hết hạn dựa trên rememberMe
     const secret = process.env.JWT_SECRET || 'devsecret';
+    // Nếu rememberMe = true: token hết hạn sau 30 ngày, nếu false: hết hạn sau 1 ngày
+    const expiresIn = rememberMe ? "30d" : "1d";
     const token = jwt.sign({ id: user._id }, secret, {
-      expiresIn: "30d",                 // Token có hiệu lực 30 ngày
+      expiresIn: expiresIn,
     });
 
     // SUCCESS RESPONSE: Trả về thông tin user và token để frontend lưu
@@ -209,6 +207,7 @@ export const loginUser = async (req, res) => {
       email: user.email,                // Email để hiển thị
       role: user.role,                  // Role để phân quyền frontend
       token: token,                     // JWT token cho các request sau
+      rememberMe: rememberMe || false,  // Trả về rememberMe để frontend biết cách lưu token
     });
   } catch (error) {
     console.error("Login error:", error);

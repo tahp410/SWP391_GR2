@@ -76,6 +76,7 @@ const Login = () => {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
+          rememberMe: rememberMe,
         }),
       });
 
@@ -92,6 +93,17 @@ const Login = () => {
         email: data.email,
         role: data.role
       };
+      
+      // Nếu rememberMe = true: lưu vào localStorage (persistent)
+      // Nếu rememberMe = false: lưu vào sessionStorage (temporary - tự xóa khi đóng trình duyệt)
+      if (rememberMe) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(userData));
+      } else {
+        sessionStorage.setItem('token', data.token);
+        sessionStorage.setItem('user', JSON.stringify(userData));
+      }
+      
       login(data.token, userData);
 
       // Reset form
