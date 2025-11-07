@@ -15,18 +15,11 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Khởi tạo user data từ localStorage hoặc sessionStorage
+  // Khởi tạo user data từ localStorage
   useEffect(() => {
     try {
-      // Kiểm tra localStorage trước (rememberMe = true)
-      let token = localStorage.getItem('token');
-      let userData = localStorage.getItem('user');
-      
-      // Nếu không có trong localStorage, kiểm tra sessionStorage (rememberMe = false)
-      if (!token) {
-        token = sessionStorage.getItem('token');
-        userData = sessionStorage.getItem('user');
-      }
+      const token = localStorage.getItem('token');
+      const userData = localStorage.getItem('user');
       
       setIsAuthenticated(!!token);
       
@@ -42,17 +35,10 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Kiểm tra authentication trên mỗi lần localStorage hoặc sessionStorage thay đổi
+  // Kiểm tra authentication trên mỗi lần localStorage thay đổi
   useEffect(() => {
     const checkAuth = () => {
-      // Kiểm tra localStorage trước (rememberMe = true)
-      let token = localStorage.getItem('token');
-      
-      // Nếu không có trong localStorage, kiểm tra sessionStorage (rememberMe = false)
-      if (!token) {
-        token = sessionStorage.getItem('token');
-      }
-      
+      const token = localStorage.getItem('token');
       setIsAuthenticated(!!token);
       
       if (!token) {
@@ -72,18 +58,15 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (token, userData) => {
-    // Token và userData đã được lưu vào localStorage hoặc sessionStorage trong login.js
-    // Chỉ cần cập nhật state ở đây
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(userData));
     setIsAuthenticated(true);
     setUser(userData);
   };
 
   const logout = () => {
-    // Xóa token và user từ cả localStorage và sessionStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('user');
     setIsAuthenticated(false);
     setUser(null);
   };
