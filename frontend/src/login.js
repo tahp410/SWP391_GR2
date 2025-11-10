@@ -101,8 +101,14 @@ const Login = () => {
       });
       setErrors({});
 
-      // Chuyển hướng đến trang chủ
-      window.location.href = '/home';
+      // Chuyển hướng theo role
+      if (data.role === 'admin') {
+        window.location.href = '/admin';
+      } else if (data.role === 'employee') {
+        window.location.href = '/employee';
+      } else {
+        window.location.href = '/home';
+      }
 
     } catch (error) {
       setErrors({

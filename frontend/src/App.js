@@ -24,6 +24,11 @@ import PurchasePage from './components/PurchasePage';
 import UserPurchaseHistory from './components/UserPurchaseHistory';
 import AdminPurchaseHistory from './components/Admin/AdminPurchaseHistory';
 import CheckInPage from './components/Employee/CheckInPage';
+import EmployeeDashboard from './components/Employee/EmployeeDashboard';
+import EmployeeBookTicket from './components/Employee/EmployeeBookTicket';
+import EmployeeBookings from './components/Employee/EmployeeBookings';
+import EmployeeBookingFlow from './components/Employee/EmployeeBookingFlow';
+import EmployeePurchase from './components/Employee/EmployeePurchase';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
@@ -41,7 +46,11 @@ const AppInner = () => {
         {/* Login */}
         <Route 
           path="/" 
-          element={isAuthenticated ? <Navigate to="/home" /> : <Login />} 
+          element={
+            isAuthenticated 
+              ? (isAdmin ? <Navigate to="/admin" /> : (isEmployee ? <Navigate to="/employee" /> : <Navigate to="/home" />))
+              : <Login />
+          } 
         />
 
         {/* Register */}
@@ -141,10 +150,17 @@ const AppInner = () => {
         />
 
         {/* Employee Routes */}
-        <Route 
-          path="/checkin" 
-          element={isEmployee ? <CheckInPage /> : <Navigate to="/home" />} 
-        />
+        <Route path="/employee" element={isEmployee ? <EmployeeDashboard /> : <Navigate to="/home" />} >
+          <Route index element={<Navigate to="/employee/book-ticket" />} />
+          <Route path="book-ticket" element={<EmployeeBookTicket />} />
+          <Route path="booking/:movieId" element={<EmployeeBookingFlow />} />
+          <Route path="bookings" element={<EmployeeBookings />} />
+          <Route path="checkin" element={<CheckInPage />} />
+          <Route path="purchase/:bookingId" element={<EmployeePurchase />} />
+        </Route>
+
+        {/* Backward-compatible path similar to screenshot */}
+        <Route path="/admin/employee-book-ticket" element={isEmployee ? <Navigate to="/employee/book-ticket" /> : <Navigate to="/home" />} />
 
         {/* 404 Route */}
         <Route 
