@@ -17,6 +17,7 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import theaterRoutes from "./routes/theaterRoutes.js";
 import showtimeRoutes from "./routes/showtimeRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 import { releaseExpiredHolds } from "./controllers/bookingController.js";
 
 // ES modules equivalent của __dirname
@@ -60,6 +61,7 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/theaters", theaterRoutes);
 app.use("/api/showtimes", showtimeRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/payment", paymentRoutes);
 // Route test
 app.get("/", (req, res) => {
   res.send("🚀 Backend server is running!");
