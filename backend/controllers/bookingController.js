@@ -7,6 +7,7 @@ import SeatLayout from "../models/seatLayoutModel.js";
 import SeatStatus from "../models/seatStatusModel.js";
 import Booking from "../models/bookingModel.js";
 import Voucher from "../models/voucherModel.js";
+import { payOS, generateOrderCode } from "../utils/payosClient.js";
 
 const HOLD_MINUTES = 1;
 
@@ -398,11 +399,11 @@ export const getBookingById = async (req, res) => {
 // Generate QR code for payment (with bank info)
 export const generatePaymentQR = async (req, res) => {
   try {
-    const { bookingId, paymentMethod } = req.body;
+    const { bookingId } = req.body;
     const userId = req.user?._id || null;
     
-    if (!bookingId || !paymentMethod) {
-      return res.status(400).json({ message: "bookingId and paymentMethod are required" });
+    if (!bookingId) {
+      return res.status(400).json({ message: "bookingId is required" });
     }
     
     const booking = await Booking.findById(bookingId).populate('showtime');
@@ -418,47 +419,26 @@ export const generatePaymentQR = async (req, res) => {
     if (booking.paymentStatus === "completed") {
       return res.status(400).json({ message: "Payment already completed" });
     }
-    
-    // Generate QR code data with bank account information
-    const qrData = JSON.stringify({
-      type: "bank_transfer",
-      accountName: "CINEMA BOOKING SYSTEM",
-      accountNumber: "19036780036015",
-      bankCode: "TCB",
-      bankName: "Techcombank",
-      amount: booking.totalAmount,
-      bookingId: booking._id.toString(),
-      transactionId: `TXN-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      content: `Payment for booking ${booking._id.toString().substring(0, 8)}`
+
+    // Create PayOS payment link instead of bank QR
+    const orderCode = generateOrderCode();
+    const result = await payOS.paymentRequests.create({
+      orderCode,
+      amount: Math.max(0, Math.floor(booking.totalAmount)),
+      description: `Thanh toán đặt vé ${String(booking._id).slice(-8)}`,
+      returnUrl: `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/return`,
+      cancelUrl: `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/cancel`,
     });
-    
-    // Generate QR code as data URL
-    let qrCodeDataUrl;
-    try {
-      qrCodeDataUrl = await QRCode.toDataURL(qrData);
-    } catch (qrErr) {
-      console.error("QR code generation error:", qrErr);
-      qrCodeDataUrl = null;
-    }
-    
-    // Store payment method and QR code (but don't mark as completed yet)
-    booking.paymentMethod = paymentMethod;
-    booking.qrCode = qrCodeDataUrl;
+
+    booking.transactionId = String(orderCode);
+    booking.paymentMethod = "bank_transfer";
     await booking.save();
-    
+
     return res.json({
       success: true,
-      message: "QR code generated",
-      booking: booking,
-      qrCode: qrCodeDataUrl,
-      qrData: qrData,
-      bankInfo: {
-        accountName: "CINEMA BOOKING SYSTEM",
-        accountNumber: "19036780036015",
-        bankName: "Techcombank",
-        amount: booking.totalAmount
-      }
+      message: "Payment link generated",
+      paymentUrl: result?.checkoutUrl,
+      orderCode,
     });
   } catch (err) {
     console.error("generatePaymentQR error:", err);

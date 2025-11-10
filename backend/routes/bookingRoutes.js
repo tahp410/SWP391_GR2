@@ -7,9 +7,9 @@ import {
   createBooking,
   getBookingById,
   generatePaymentQR,
-  markAsPurchased,
-  cancelPayment,
-  confirmPayment,
+  // markAsPurchased, // deprecated in favor of PayOS flow
+  // cancelPayment,   // keep but not exposed here
+  // confirmPayment,  // deprecated - handled by PayOS webhook
   getUserPurchaseHistory,
   getAllPurchaseHistory,
   getBookingByQR,
@@ -31,13 +31,13 @@ router.post('/', protect, createBooking);
 router.post('/payment/qr', protect, generatePaymentQR);
 
 // Payment flow: user marks as purchased
-router.post('/payment/purchased', protect, markAsPurchased);
+// router.post('/payment/purchased', protect, markAsPurchased); // deprecated
 
 // Payment flow: user cancels payment
-router.post('/payment/cancel', protect, cancelPayment);
+// router.post('/payment/cancel', protect, cancelPayment); // optional with PayOS
 
 // Admin: confirm or reject payment
-router.post('/payment/confirm', protect, adminOnly, confirmPayment);
+// router.post('/payment/confirm', protect, adminOnly, confirmPayment); // deprecated
 
 // Purchase history (must be before /:id route)
 router.get('/history/user', protect, getUserPurchaseHistory);
