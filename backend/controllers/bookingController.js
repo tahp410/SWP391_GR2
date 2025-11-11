@@ -304,7 +304,7 @@ export const createBooking = async (req, res) => {
       voucher: voucherDoc?._id || null,
       discountAmount,
       paymentStatus: null, // Not paid yet
-      bookingStatus: "confirmed",
+      bookingStatus: "pending",
       qrCode: qrCodeDataUrl,
       customerInfo: customerInfo || undefined,
     });
@@ -396,7 +396,7 @@ export const getBookingById = async (req, res) => {
   }
 };
 
-// Generate QR code for payment (with bank info)
+// Generate PayOS checkout link and QR (no bank info)
 export const generatePaymentQR = async (req, res) => {
   try {
     const { bookingId } = req.body;
@@ -420,29 +420,47 @@ export const generatePaymentQR = async (req, res) => {
       return res.status(400).json({ message: "Payment already completed" });
     }
 
-    // Create PayOS payment link instead of bank QR
+    // Create PayOS payment link
     const orderCode = generateOrderCode();
+    const description = `Booking ${String(booking._id).slice(-6)}`.slice(0, 25);
     const result = await payOS.paymentRequests.create({
       orderCode,
       amount: Math.max(0, Math.floor(booking.totalAmount)),
-      description: `Thanh toán đặt vé ${String(booking._id).slice(-8)}`,
+      description,
       returnUrl: `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/return`,
       cancelUrl: `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/cancel`,
     });
 
+    // Generate scannable QR from checkoutUrl
+    const paymentUrl = result?.checkoutUrl || null;
+    let paymentQRCode = null;
+    if (paymentUrl) {
+      try {
+        paymentQRCode = await QRCode.toDataURL(paymentUrl);
+      } catch (qrErr) {
+        console.error("generatePaymentQR: cannot generate QR:", qrErr);
+      }
+    }
+
+    // Mark booking as pending and store transaction/order code
     booking.transactionId = String(orderCode);
     booking.paymentMethod = "bank_transfer";
+    booking.paymentStatus = "pending";
+    booking.bookingStatus = "pending";
     await booking.save();
 
     return res.json({
       success: true,
       message: "Payment link generated",
-      paymentUrl: result?.checkoutUrl,
+      paymentUrl,
+      paymentQRCode,
       orderCode,
     });
   } catch (err) {
     console.error("generatePaymentQR error:", err);
-    res.status(500).json({ message: err.message });
+    // Bubble up PayOS errors if available
+    const message = err?.response?.data?.desc || err?.response?.data?.message || err?.message || "Failed to generate payment link";
+    res.status(500).json({ message });
   }
 };
 

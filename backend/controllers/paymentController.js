@@ -44,7 +44,7 @@ export const createPayment = async (req, res) => {
 		let paymentQRCode = null;
 		if (paymentUrl) {
 			try {
-				paymentQRCode = await QRCode.toDataURL(paymentUr);
+				paymentQRCode = await QRCode.toDataURL(paymentUrl);
 			} catch (qrErr) {
 				console.error("createPayment: cannot generate payment QR:", qrErr);
 			}
@@ -136,7 +136,7 @@ export const payOSWebhook = async (req, res) => {
 		}
 
 		// If already completed, idempotent
-		if (booking.paymentStatus === "completed") {   
+		if (booking.paymentStatus === "completed") {
 			return res.status(200).json({ ok: true });
 		}
 
