@@ -199,7 +199,7 @@ export const releaseSeats = async (req, res) => {
 
 export const createBooking = async (req, res) => {
   try {
-    const { showtimeId, seats, combos = [], voucher = null, customerInfo } = req.body;
+    const { showtimeId, seats, combos = [], voucher = null, customerInfo, paymentMethod } = req.body;
     const userId = req.user?._id || null;
 
     const showtime = await Showtime.findById(showtimeId);
@@ -302,6 +302,7 @@ export const createBooking = async (req, res) => {
       combos: combosNormalized,
       voucher: voucherDoc?._id || null,
       discountAmount,
+      paymentMethod: paymentMethod || null,
       paymentStatus: null, // Not paid yet
       bookingStatus: "confirmed",
       qrCode: qrCodeDataUrl,
@@ -757,6 +758,105 @@ export const confirmPayment = async (req, res) => {
     });
   } catch (err) {
     console.error("confirmPayment error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Employee confirms cash payment
+export const confirmCashPayment = async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+    
+    if (!bookingId) {
+      return res.status(400).json({ message: "bookingId is required" });
+    }
+    
+    const booking = await Booking.findById(bookingId).populate('showtime');
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    
+    // Chỉ cho phép xác nhận thanh toán tiền mặt
+    if (booking.paymentMethod !== 'cash') {
+      return res.status(400).json({ message: "This endpoint is only for cash payments" });
+    }
+    
+    // Chỉ cho phép xác nhận khi chưa thanh toán
+    if (booking.paymentStatus === "completed") {
+      return res.status(400).json({ message: "Payment already completed" });
+    }
+    
+    const showtimeId = booking.showtime?._id || booking.showtime;
+    
+    // Mark payment as completed
+    booking.paymentStatus = "completed";
+    booking.bookingStatus = "confirmed";
+    
+    // Generate ticket QR code for check-in
+    const ticketQRData = JSON.stringify({
+      type: "ticket",
+      bookingId: booking._id.toString(),
+      showtimeId: showtimeId.toString(),
+      seats: booking.seats.map(s => `${s.row}${s.number}`),
+      timestamp: new Date().toISOString(),
+    });
+    
+    try {
+      booking.ticketQRCode = await QRCode.toDataURL(ticketQRData);
+      console.log("Ticket QR code generated successfully for booking:", booking._id.toString());
+    } catch (qrErr) {
+      console.error("Ticket QR code generation error:", qrErr);
+    }
+    
+    // Ensure seats remain booked
+    if (showtimeId) {
+      const showtimeDoc = await Showtime.findById(showtimeId).populate('theater');
+      const theaterId = showtimeDoc?.theater?._id || showtimeDoc?.theater;
+      
+      if (theaterId) {
+        const seatDocs = await Seat.find({
+          theater: theaterId,
+          $or: booking.seats.map(s => ({ row: s.row, number: s.number }))
+        });
+        
+        const seatIds = seatDocs.map(s => s._id);
+        
+        // Keep seats booked
+        await SeatStatus.updateMany(
+          { 
+            showtime: showtimeId, 
+            seat: { $in: seatIds }
+          },
+          { 
+            $set: { 
+              status: "booked",
+              booking: booking._id
+            },
+            $unset: { 
+              reservedBy: 1, 
+              reservedAt: 1, 
+              reservationExpires: 1
+            }
+          }
+        );
+      }
+    }
+    
+    await booking.save();
+    
+    // Populate booking trước khi return để có đầy đủ thông tin
+    await booking.populate([
+      { path: 'showtime', populate: ['movie', 'theater', 'branch'] },
+      { path: 'user', select: 'name email phone' }
+    ]);
+    
+    return res.json({
+      success: true,
+      message: "Cash payment confirmed successfully",
+      booking: booking
+    });
+  } catch (err) {
+    console.error("confirmCashPayment error:", err);
     res.status(500).json({ message: err.message });
   }
 };

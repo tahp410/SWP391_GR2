@@ -10,6 +10,7 @@ import {
   markAsPurchased,
   cancelPayment,
   confirmPayment,
+  confirmCashPayment,
   getUserPurchaseHistory,
   getAllPurchaseHistory,
   getBookingByQR,
@@ -38,6 +39,9 @@ router.post('/payment/cancel', protect, cancelPayment);
 
 // Admin: confirm or reject payment
 router.post('/payment/confirm', protect, adminOnly, confirmPayment);
+
+// Employee: confirm cash payment
+router.post('/payment/confirm-cash', protect, adminOrEmployee, confirmCashPayment);
 
 // Purchase history (must be before /:id route)
 router.get('/history/user', protect, getUserPurchaseHistory);
