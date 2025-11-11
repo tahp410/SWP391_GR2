@@ -88,9 +88,16 @@ export default function PurchasePage() {
     setNotification(null);
   
     try {
+      const origin = window.location.origin;
+      const currentPath = `${location.pathname}${location.search}`;
+      const movieId = (booking?.showtime?.movie?._id || booking?.showtime?.movie || '').toString();
+      const backToSeat = movieId ? `/booking/${encodeURIComponent(movieId)}` : currentPath;
+      const successReturnUrl = `${origin}/payment/return?bookingId=${encodeURIComponent(bookingId)}`;
+      const cancelReturnUrl = `${origin}/payment/cancel?prev=${encodeURIComponent(currentPath)}&back=${encodeURIComponent(backToSeat)}&bookingId=${encodeURIComponent(bookingId)}`;
+
       const response = await axios.post(
         `${API_BASE}/bookings/payment/qr`,
-        { bookingId },
+        { bookingId, returnUrl: successReturnUrl, cancelUrl: cancelReturnUrl },
         { headers: { Authorization: `Bearer ${token}` } }
       );
   
@@ -110,8 +117,8 @@ export default function PurchasePage() {
   
         // 👉 Auto direct sang trang thanh toán
         if (payUrl) {
-          // dùng assign để giữ lịch sử; đổi thành replace nếu muốn không cho back
-          window.location.assign(payUrl);
+          // dùng replace để tránh tạo thêm entry lịch sử (mượt khi Back)
+          window.location.replace(payUrl);
           return; // tránh chạy finally setProcessing(false) ngay khi chuyển trang
         }
       }

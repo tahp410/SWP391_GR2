@@ -22,8 +22,9 @@ import UserManagement from './components/Admin/UserManagement';
 import ShowtimeList from './components/ShowtimeList'; // ✅ Thêm dòng này
 import PurchasePage from './components/PurchasePage';
 import UserPurchaseHistory from './components/UserPurchaseHistory';
-import AdminPurchaseHistory from './components/Admin/AdminPurchaseHistory';
 import CheckInPage from './components/Employee/CheckInPage';
+import PaymentReturn from './components/PaymentReturn';
+import PaymentCancel from './components/PaymentCancel';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';
@@ -94,6 +95,10 @@ const AppInner = () => {
           element={isAuthenticated ? <ShowtimeList /> : <Navigate to="/"/>} 
         />
 
+        {/* Payment return/cancel routes for PayOS redirects */}
+        <Route path="/payment/return" element={isAuthenticated ? <PaymentReturn /> : <Navigate to="/"/>} />
+        <Route path="/payment/cancel" element={isAuthenticated ? <PaymentCancel /> : <Navigate to="/"/>} />
+
         {/* Admin Routes */}
         <Route 
           path="/admin" 
@@ -126,10 +131,6 @@ const AppInner = () => {
         <Route 
           path="/admin/combos" 
           element={isAdmin ? <ComboManagement /> : <Navigate to="/home" />} 
-        />
-        <Route 
-          path="/admin/bookings" 
-          element={isAdmin ? <AdminPurchaseHistory /> : <Navigate to="/home" />} 
         />
         <Route 
           path="/admin/settings" 

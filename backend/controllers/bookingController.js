@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import QRCode from "qrcode";
 import Showtime from "../models/showtimeModel.js";
 import Seat from "../models/seatModel.js";
 import Theater from "../models/theaterModel.js";
@@ -274,27 +273,6 @@ export const createBooking = async (req, res) => {
       }
     }
 
-    // Generate QR code data with bank account information
-    const qrData = JSON.stringify({
-      type: "bank_transfer",
-      accountName: "CINEMA BOOKING SYSTEM",
-      accountNumber: "19036780036015",
-      bankCode: "TCB",
-      bankName: "Techcombank",
-      amount: total - discountAmount,
-      bookingId: null, // Will be set after booking creation
-      timestamp: new Date().toISOString(),
-      content: `Payment for booking`
-    });
-    
-    // Generate QR code as data URL
-    let qrCodeDataUrl = null;
-    try {
-      qrCodeDataUrl = await QRCode.toDataURL(qrData);
-    } catch (qrErr) {
-      console.error("QR code generation error:", qrErr);
-    }
-
     const bookingDoc = await Booking.create({
       user: userId,
       showtime: showtimeId,
@@ -303,32 +281,10 @@ export const createBooking = async (req, res) => {
       combos: combosNormalized,
       voucher: voucherDoc?._id || null,
       discountAmount,
-      paymentStatus: null, // Not paid yet
+      paymentStatus: null,
       bookingStatus: "pending",
-      qrCode: qrCodeDataUrl,
       customerInfo: customerInfo || undefined,
     });
-    
-    // Update QR code with booking ID
-    const updatedQrData = JSON.stringify({
-      type: "bank_transfer",
-      accountName: "CINEMA BOOKING SYSTEM",
-      accountNumber: "19036780036015",
-      bankCode: "TCB",
-      bankName: "Techcombank",
-      amount: total - discountAmount,
-      bookingId: bookingDoc._id.toString(),
-      transactionId: `TXN-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      content: `Payment for booking ${bookingDoc._id.toString().substring(0, 8)}`
-    });
-    
-    try {
-      bookingDoc.qrCode = await QRCode.toDataURL(updatedQrData);
-      await bookingDoc.save();
-    } catch (qrErr) {
-      console.error("QR code update error:", qrErr);
-    }
 
     // Mark seats as booked atomically (only if currently reserved)
     const upd = await SeatStatus.updateMany(
@@ -399,7 +355,7 @@ export const getBookingById = async (req, res) => {
 // Generate PayOS checkout link and QR (no bank info)
 export const generatePaymentQR = async (req, res) => {
   try {
-    const { bookingId } = req.body;
+    const { bookingId, returnUrl, cancelUrl } = req.body;
     const userId = req.user?._id || null;
     
     if (!bookingId) {
@@ -427,8 +383,8 @@ export const generatePaymentQR = async (req, res) => {
       orderCode,
       amount: Math.max(0, Math.floor(booking.totalAmount)),
       description,
-      returnUrl: `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/return`,
-      cancelUrl: `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/cancel`,
+      returnUrl: returnUrl || `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/return`,
+      cancelUrl: cancelUrl || `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/cancel`,
     });
 
     // Generate scannable QR from checkoutUrl
@@ -461,92 +417,6 @@ export const generatePaymentQR = async (req, res) => {
     // Bubble up PayOS errors if available
     const message = err?.response?.data?.desc || err?.response?.data?.message || err?.message || "Failed to generate payment link";
     res.status(500).json({ message });
-  }
-};
-
-// Mark payment as purchased (user confirms they've paid)
-export const markAsPurchased = async (req, res) => {
-  try {
-    const { bookingId } = req.body;
-    const userId = req.user?._id || null;
-    
-    if (!bookingId) {
-      return res.status(400).json({ message: "bookingId is required" });
-    }
-    
-    const booking = await Booking.findById(bookingId).populate('showtime');
-    if (!booking) {
-      return res.status(404).json({ message: "Booking not found" });
-    }
-    
-    // Check ownership
-    if (userId && String(booking.user || booking.user?._id) !== String(userId)) {
-      return res.status(403).json({ message: "Unauthorized" });
-    }
-    
-    if (booking.paymentStatus === "completed") {
-      return res.status(400).json({ message: "Payment already completed" });
-    }
-    
-    // Lock seats for 24 hours while waiting for admin confirmation
-    const showtimeId = booking.showtime?._id || booking.showtime;
-    if (!showtimeId) {
-      return res.status(400).json({ message: "Showtime not found" });
-    }
-    
-    // Get seat IDs from booking - find seats by row and number
-    const showtimeDoc = await Showtime.findById(showtimeId).populate('theater');
-    const theaterId = showtimeDoc?.theater?._id || showtimeDoc?.theater;
-    
-    if (!theaterId) {
-      return res.status(400).json({ message: "Theater not found" });
-    }
-    
-    // Find seats by matching row and number
-    const seatDocs = await Seat.find({
-      theater: theaterId,
-      $or: booking.seats.map(s => ({ row: s.row, number: s.number }))
-    });
-    
-    if (seatDocs.length !== booking.seats.length) {
-      return res.status(400).json({ message: "Some seats not found" });
-    }
-    
-    const seatIds = seatDocs.map(s => s._id);
-    const lockExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
-    
-    // Lock seats by setting status to "blocked" for 24 hours
-    await SeatStatus.updateMany(
-      { 
-        showtime: showtimeId, 
-        seat: { $in: seatIds }
-      },
-      { 
-        $set: { 
-          status: "blocked",
-          reservationExpires: lockExpiresAt,
-          reservedBy: userId,
-          reservedAt: new Date()
-        }
-      },
-      { upsert: true }
-    );
-    
-    // Set status to pending - waiting for admin confirmation
-    booking.paymentStatus = "pending";
-    booking.bookingStatus = "pending";
-    booking.transactionId = booking.transactionId || `TXN-${Date.now()}`;
-    await booking.save();
-    
-    return res.json({
-      success: true,
-      message: "Payment marked as purchased. Seats locked for 24 hours. Waiting for admin confirmation.",
-      booking: booking,
-      lockExpiresAt: lockExpiresAt
-    });
-  } catch (err) {
-    console.error("markAsPurchased error:", err);
-    res.status(500).json({ message: err.message });
   }
 };
 
@@ -607,9 +477,9 @@ export const cancelPayment = async (req, res) => {
       }
     }
     
-    // Reset booking statuses to previous state
-    booking.paymentStatus = null; // Reset to not paid
-    booking.bookingStatus = "confirmed"; // Keep booking confirmed but payment not paid
+    // Reset booking statuses
+    booking.paymentStatus = "failed";
+    booking.bookingStatus = "cancelled";
     booking.transactionId = null;
     await booking.save();
     
@@ -624,140 +494,7 @@ export const cancelPayment = async (req, res) => {
   }
 };
 
-// Admin confirms or rejects payment
-export const confirmPayment = async (req, res) => {
-  try {
-    const { bookingId, action } = req.body; // action: 'approve' or 'reject'
-    
-    if (!bookingId || !action) {
-      return res.status(400).json({ message: "bookingId and action (approve/reject) are required" });
-    }
-    
-    if (!['approve', 'reject'].includes(action)) {
-      return res.status(400).json({ message: "action must be 'approve' or 'reject'" });
-    }
-    
-    const booking = await Booking.findById(bookingId).populate('showtime');
-    if (!booking) {
-      return res.status(404).json({ message: "Booking not found" });
-    }
-    
-    if (booking.paymentStatus !== "pending") {
-      return res.status(400).json({ message: "Only pending payments can be confirmed" });
-    }
-    
-    const showtimeId = booking.showtime?._id || booking.showtime;
-    
-    if (action === 'approve') {
-      // Approve: Mark payment as completed, keep seats booked
-      booking.paymentStatus = "completed";
-      booking.bookingStatus = "confirmed";
-      
-      // Generate ticket QR code for check-in
-      const ticketQRData = JSON.stringify({
-        type: "ticket",
-        bookingId: booking._id.toString(),
-        showtimeId: showtimeId.toString(),
-        seats: booking.seats.map(s => `${s.row}${s.number}`),
-        timestamp: new Date().toISOString(),
-      });
-      
-      try {
-        booking.ticketQRCode = await QRCode.toDataURL(ticketQRData);
-        console.log("Ticket QR code generated successfully for booking:", booking._id.toString());
-      } catch (qrErr) {
-        console.error("Ticket QR code generation error:", qrErr);
-      }
-      
-      // Ensure seats remain booked
-      if (showtimeId) {
-        const showtimeDoc = await Showtime.findById(showtimeId).populate('theater');
-        const theaterId = showtimeDoc?.theater?._id || showtimeDoc?.theater;
-        
-        if (theaterId) {
-          const seatDocs = await Seat.find({
-            theater: theaterId,
-            $or: booking.seats.map(s => ({ row: s.row, number: s.number }))
-          });
-          
-          const seatIds = seatDocs.map(s => s._id);
-          
-          // Keep seats booked
-          await SeatStatus.updateMany(
-            { 
-              showtime: showtimeId, 
-              seat: { $in: seatIds }
-            },
-            { 
-              $set: { 
-                status: "booked",
-                booking: booking._id
-              },
-              $unset: { 
-                reservedBy: 1, 
-                reservedAt: 1, 
-                reservationExpires: 1
-              }
-            }
-          );
-        }
-      }
-    } else {
-      // Reject: Mark payment as failed, release seats
-      booking.paymentStatus = "failed";
-      booking.bookingStatus = "cancelled";
-      
-      // Release seats
-      if (showtimeId) {
-        const showtimeDoc = await Showtime.findById(showtimeId).populate('theater');
-        const theaterId = showtimeDoc?.theater?._id || showtimeDoc?.theater;
-        
-        if (theaterId) {
-          const seatDocs = await Seat.find({
-            theater: theaterId,
-            $or: booking.seats.map(s => ({ row: s.row, number: s.number }))
-          });
-          
-          const seatIds = seatDocs.map(s => s._id);
-          
-          // Release seats by setting status to "available"
-          await SeatStatus.updateMany(
-            { 
-              showtime: showtimeId, 
-              seat: { $in: seatIds }
-            },
-            { 
-              $set: { status: "available" },
-              $unset: { 
-                reservedBy: 1, 
-                reservedAt: 1, 
-                reservationExpires: 1,
-                booking: 1
-              }
-            }
-          );
-        }
-      }
-    }
-    
-    await booking.save();
-    
-    // Populate booking trước khi return để có đầy đủ thông tin
-    await booking.populate([
-      { path: 'showtime', populate: ['movie', 'theater', 'branch'] },
-      { path: 'user', select: 'name email phone' }
-    ]);
-    
-    return res.json({
-      success: true,
-      message: action === 'approve' ? "Payment approved successfully" : "Payment rejected. Seats released.",
-      booking: booking
-    });
-  } catch (err) {
-    console.error("confirmPayment error:", err);
-    res.status(500).json({ message: err.message });
-  }
-};
+
 
 // Get user's purchase history
 export const getUserPurchaseHistory = async (req, res) => {
