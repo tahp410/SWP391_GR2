@@ -1,32 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Eye } from 'lucide-react';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
 
-export default function UserPurchaseHistory() {
+export default function UserPurchaseHistory({ employeeView = false }) {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPurchaseHistory();
-  }, []);
-
-  const fetchPurchaseHistory = async () => {
+  const fetchPurchaseHistory = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API_BASE}/bookings/history/user`, {
+      const endpoint = employeeView
+        ? `${API_BASE}/bookings/history/all`
+        : `${API_BASE}/bookings/history/user`;
+
+      const { data } = await axios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setBookings(data.bookings || []);
+      setBookings((data?.bookings || []).map((booking) => ({ ...booking })));
     } catch (err) {
       console.error('Error fetching purchase history:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [employeeView, token]);
+
+  useEffect(() => {
+    fetchPurchaseHistory();
+  }, [fetchPurchaseHistory]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -52,6 +56,7 @@ export default function UserPurchaseHistory() {
   const getPaymentStatusBadge = (status) => {
     const badges = {
       completed: 'bg-green-100 text-green-800',
+      success: 'bg-green-100 text-green-800',
       failed: 'bg-red-100 text-red-800',
       pending: 'bg-yellow-100 text-yellow-800',
       refunded: 'bg-gray-100 text-gray-800'
@@ -62,11 +67,44 @@ export default function UserPurchaseHistory() {
   const getBookingStatusBadge = (status) => {
     const badges = {
       confirmed: 'bg-blue-100 text-blue-800',
+      done: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
       completed: 'bg-green-100 text-green-800',
       pending: 'bg-yellow-100 text-yellow-800'
     };
     return badges[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getPaymentStatusLabel = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'completed':
+      case 'success':
+        return 'Đã thanh toán';
+      case 'pending':
+        return 'Đang xử lý';
+      case 'failed':
+        return 'Thanh toán thất bại';
+      case 'refunded':
+        return 'Đã hoàn tiền';
+      default:
+        return 'Chưa thanh toán';
+    }
+  };
+
+  const getBookingStatusLabel = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'done':
+      case 'completed':
+        return 'Hoàn tất';
+      case 'confirmed':
+        return 'Đã xác nhận';
+      case 'pending':
+        return 'Đang xử lý';
+      case 'cancelled':
+        return 'Đã hủy';
+      default:
+        return 'Đang xử lý';
+    }
   };
 
   if (loading) {
@@ -94,7 +132,9 @@ export default function UserPurchaseHistory() {
               Back
             </button>
           </div>
-          <h1 className="text-3xl font-bold text-gray-800">Purchase History</h1>
+          <h1 className="text-3xl font-bold text-gray-800">
+            {employeeView ? 'Danh sách vé đã đặt' : 'Purchase History'}
+          </h1>
         </div>
 
         {/* Table */}
@@ -111,6 +151,11 @@ export default function UserPurchaseHistory() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Booking ID
                     </th>
+                    {employeeView && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Customer
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Movie
                     </th>
@@ -141,11 +186,28 @@ export default function UserPurchaseHistory() {
                   {bookings.map((booking) => {
                     const movie = booking.showtime?.movie;
                     const showtime = booking.showtime;
+                    const user = booking.user;
                     return (
                       <tr key={booking._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {booking._id.substring(0, 8)}...
                         </td>
+                        {employeeView && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="flex flex-col">
+                              <span className="font-medium">{user?.name || 'Khách lẻ'}</span>
+                              {user?.email && (
+                                <span className="text-xs text-gray-500">{user.email}</span>
+                              )}
+                              <div className="text-xs text-gray-500 flex items-center gap-1">
+                                <span className="inline-block px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 capitalize">
+                                  {user?.role || 'customer'}
+                                </span>
+                                {user?.phone && <span>{user.phone}</span>}
+                              </div>
+                            </div>
+                          </td>
+                        )}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             {movie?.poster && (
@@ -186,12 +248,12 @@ export default function UserPurchaseHistory() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPaymentStatusBadge(booking.paymentStatus)}`}>
-                            {booking.paymentStatus || 'pending'}
+                            {getPaymentStatusLabel(booking.paymentStatus)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getBookingStatusBadge(booking.bookingStatus)}`}>
-                            {booking.bookingStatus || 'pending'}
+                            {getBookingStatusLabel(booking.bookingStatus)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

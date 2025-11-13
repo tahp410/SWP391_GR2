@@ -31,8 +31,8 @@ export default function EmployeeBookingFlow() {
   const [voucherMsg, setVoucherMsg] = useState('');
   const [paymentMethod, setPaymentMethod] = useState(''); // 'cash' | 'qr'
 
-  const token = localStorage.getItem('token');
-  const userJson = localStorage.getItem('user');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const userJson = localStorage.getItem('user') || sessionStorage.getItem('user');
   const user = userJson ? JSON.parse(userJson) : null;
 
   // read query

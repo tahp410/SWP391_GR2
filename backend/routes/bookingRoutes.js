@@ -43,7 +43,7 @@ router.post('/payment/confirm-cash', protect, adminOrEmployee, confirmCashPaymen
 
 // Purchase history (must be before /:id route)
 router.get('/history/user', protect, getUserPurchaseHistory);
-router.get('/history/all', protect, adminOnly, getAllPurchaseHistory);
+router.get('/history/all', protect, adminOrEmployee, getAllPurchaseHistory);
 
 // Employee check-in routes
 router.post('/checkin/qr', protect, adminOrEmployee, getBookingByQR);

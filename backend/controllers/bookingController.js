@@ -637,7 +637,7 @@ export const getAllPurchaseHistory = async (req, res) => {
     if (paymentStatus) filter.paymentStatus = paymentStatus;
     
     const bookings = await Booking.find(filter)
-      .populate("user", "name email phone")
+      .populate("user", "name email phone role")
       .populate("showtime")
       .populate({
         path: "showtime",
