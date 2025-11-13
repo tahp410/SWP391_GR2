@@ -232,7 +232,22 @@ export default function PurchasePage() {
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Purchase Ticket</h1>
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => {
+                // Lấy movieId, branchId, date từ booking/showtime
+                const movieId = booking?.showtime?.movie?._id || booking?.showtime?.movie || '';
+                const branchId = booking?.showtime?.branch?._id || booking?.showtime?.branch || '';
+                const start = booking?.showtime?.startTime ? new Date(booking.showtime.startTime) : null;
+                const yyyyMmDd = start ? `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}` : '';
+                if (movieId) {
+                  const qp = [];
+                  if (branchId) qp.push(`branchId=${branchId}`);
+                  if (yyyyMmDd) qp.push(`date=${yyyyMmDd}`);
+                  const qs = qp.length ? `?${qp.join('&')}` : '';
+                  navigate(`/booking/${movieId}${qs}`);
+                } else {
+                  navigate('/movies');
+                }
+              }}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-800"
             >
               <ArrowLeft className="h-5 w-5" />

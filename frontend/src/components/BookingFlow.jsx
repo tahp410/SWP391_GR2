@@ -286,8 +286,7 @@ export default function BookingFlow() {
         <h1 className="text-2xl font-semibold text-gray-800">Đặt vé</h1>
         <button
           onClick={() => {
-            if (fromCancel) navigate('/movies', { replace: true });
-            else navigate(-1);
+            navigate('/showtimes');
           }}
           className="px-3 py-2 rounded border hover:bg-gray-100"
         >
