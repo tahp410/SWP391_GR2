@@ -26,6 +26,27 @@ export default function BookingFlow() {
   const userJson = localStorage.getItem('user');
   const user = userJson ? JSON.parse(userJson) : null;
 
+  // Smooth back behavior when coming from PayOS cancel
+  const fromCancel = (() => {
+    try {
+      const p = new URLSearchParams(location.search);
+      return p.get('fromCancel') === '1';
+    } catch { return false; }
+  })();
+
+  useEffect(() => {
+    if (!fromCancel) return;
+    // Insert a history state and intercept the immediate back to avoid returning to PayOS
+    const handler = () => {
+      // Luôn đưa người dùng về danh sách phim thay vì quay về PayOS
+      navigate('/movies', { replace: true });
+    };
+    // Push a dummy state so the first back triggers popstate here
+    try { window.history.pushState(null, '', window.location.href); } catch {}
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, [fromCancel, navigate, movieId]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -263,7 +284,15 @@ export default function BookingFlow() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-start justify-between mb-4">
         <h1 className="text-2xl font-semibold text-gray-800">Đặt vé</h1>
-        <button onClick={() => navigate(-1)} className="px-3 py-2 rounded border hover:bg-gray-100">Quay lại</button>
+        <button
+          onClick={() => {
+            if (fromCancel) navigate('/movies', { replace: true });
+            else navigate(-1);
+          }}
+          className="px-3 py-2 rounded border hover:bg-gray-100"
+        >
+          Quay lại
+        </button>
       </div>
 
       {/* Movie header */}
