@@ -23,13 +23,13 @@ import ShowtimeList from './components/ShowtimeList'; // ✅ Thêm dòng này
 import PurchasePage from './components/PurchasePage';
 import UserPurchaseHistory from './components/UserPurchaseHistory';
 import CheckInPage from './components/Employee/CheckInPage';
+import PaymentReturn from './components/PaymentReturn';
+import PaymentCancel from './components/PaymentCancel';
 import EmployeeDashboard from './components/Employee/EmployeeDashboard';
 import EmployeeBookTicket from './components/Employee/EmployeeBookTicket';
 import EmployeeBookings from './components/Employee/EmployeeBookings';
 import EmployeeBookingFlow from './components/Employee/EmployeeBookingFlow';
 import EmployeePurchase from './components/Employee/EmployeePurchase';
-import PaymentReturn from './components/PaymentReturn';
-import PaymentCancel from './components/PaymentCancel';
 import './style/homepage.css';
 import './style/profile.css';
 import './style/changePassword.css';

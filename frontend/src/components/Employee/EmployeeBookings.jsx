@@ -7,7 +7,7 @@ export default function EmployeeBookings() {
       <div className="emp-header">
         <h1>Danh sách vé đã đặt</h1>
       </div>
-      <UserPurchaseHistory />
+      <UserPurchaseHistory employeeView />
     </div>
   );
 }
