@@ -22,10 +22,9 @@ export default function PurchasePage() {
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentStatus, setPaymentStatus] = useState(null); // 'success', 'failed', 'pending', null
   const [notification, setNotification] = useState(null);
-  const [qrCode, setQrCode] = useState(null);
   const [ticketQRCode, setTicketQRCode] = useState(null);
-  const [bankInfo, setBankInfo] = useState(null);
   const [showQRCode, setShowQRCode] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState(null);
 
   useEffect(() => {
     fetchBooking();
@@ -49,13 +48,8 @@ export default function PurchasePage() {
       });
       setBooking(data.booking);
       
-      // Show payment QR code if exists and payment not completed
-      if (data.booking.qrCode && data.booking.paymentStatus !== 'completed') {
-        setQrCode(data.booking.qrCode);
-        setShowQRCode(true);
-      } else {
-        setShowQRCode(false);
-      }
+      // Do not show legacy stored PNG QR; we only show QR generated from PayOS URL
+      setShowQRCode(false);
       
       // Show ticket QR code if payment completed
       if (data.booking.ticketQRCode && data.booking.paymentStatus === 'completed') {
@@ -65,15 +59,7 @@ export default function PurchasePage() {
         console.log('Payment completed but ticketQRCode not found');
       }
       
-      // Set bank info
-      if (data.booking.totalAmount) {
-        setBankInfo({
-          accountName: "CINEMA BOOKING SYSTEM",
-          accountNumber: "19036780036015",
-          bankName: "Techcombank",
-          amount: data.booking.totalAmount
-        });
-      }
+      // No bank info in PayOS URL QR flow
       
       // Check payment status
       if (data.booking.paymentStatus === 'completed') {
@@ -96,79 +82,56 @@ export default function PurchasePage() {
     }
   };
 
-  // Step 1: Generate QR code when payment method is selected
+  // Step 1: Generate PayOS payment link (and render as QR)
   const handleGenerateQR = async () => {
-    if (!paymentMethod) {
-      setNotification({ type: 'error', message: 'Please select a payment method' });
-      return;
-    }
-
     setProcessing(true);
     setNotification(null);
-
+  
     try {
+      const origin = window.location.origin;
+      const currentPath = `${location.pathname}${location.search}`;
+      const movieId = (booking?.showtime?.movie?._id || booking?.showtime?.movie || '').toString();
+      const backToSeat = movieId ? `/booking/${encodeURIComponent(movieId)}` : currentPath;
+      const successReturnUrl = `${origin}/payment/return?bookingId=${encodeURIComponent(bookingId)}`;
+      const cancelReturnUrl = `${origin}/payment/cancel?prev=${encodeURIComponent(currentPath)}&back=${encodeURIComponent(backToSeat)}&bookingId=${encodeURIComponent(bookingId)}`;
+
       const response = await axios.post(
         `${API_BASE}/bookings/payment/qr`,
-        {
-          bookingId: bookingId,
-          paymentMethod: paymentMethod
-        },
+        { bookingId, returnUrl: successReturnUrl, cancelUrl: cancelReturnUrl },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      if (response.data.success) {
-        setQrCode(response.data.qrCode);
-        setBankInfo(response.data.bankInfo);
-        setShowQRCode(true);
-        setBooking(response.data.booking);
-        setNotification({ 
-          type: 'success', 
-          message: 'QR code generated. Please scan and complete the payment.' 
+  
+      if (response.data?.success) {
+        const payUrl = response.data.paymentUrl || null;
+  
+        // Cập nhật state để vẫn hiển thị QR / nút mở link nếu cần
+        setPaymentUrl(payUrl);
+        setShowQRCode(Boolean(payUrl));
+        
+        setNotification({
+          type: 'success',
+          message: payUrl
+            ? 'Redirecting to PayOS Checkout...'
+            : 'PayOS link generated.'
         });
+  
+        // 👉 Auto direct sang trang thanh toán
+        if (payUrl) {
+          // dùng replace để tránh tạo thêm entry lịch sử (mượt khi Back)
+          window.location.replace(payUrl);
+          return; // tránh chạy finally setProcessing(false) ngay khi chuyển trang
+        }
       }
     } catch (err) {
-      const message = err?.response?.data?.message || 'Failed to generate QR code';
-      setNotification({ 
-        type: 'error', 
-        message: message 
-      });
+      const message = err?.response?.data?.message || 'Failed to create PayOS link';
+      setNotification({ type: 'error', message });
     } finally {
+      // Nếu đã redirect, dòng này sẽ không chạy (do return ở trên). 
+      // Nếu không có payUrl hoặc lỗi thì vẫn reset processing như bình thường.
       setProcessing(false);
     }
   };
-
-  // Step 2: User marks as purchased after scanning QR code
-  const handleMarkAsPurchased = async () => {
-    setProcessing(true);
-    setNotification(null);
-
-    try {
-      const response = await axios.post(
-        `${API_BASE}/bookings/payment/purchased`,
-        { bookingId: bookingId },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (response.data.success) {
-        setPaymentStatus('pending');
-        setBooking(response.data.booking);
-        setNotification({ 
-          type: 'success', 
-          message: 'Payment marked as purchased. Seats locked for 24 hours. Waiting for admin confirmation.' 
-        });
-        // Refresh booking to get updated status
-        await fetchBooking();
-      }
-    } catch (err) {
-      const message = err?.response?.data?.message || 'Failed to mark as purchased';
-      setNotification({ 
-        type: 'error', 
-        message: message 
-      });
-    } finally {
-      setProcessing(false);
-    }
-  };
+  
 
   // Cancel payment - release seats and reset statuses
   const handleCancelPayment = async () => {
@@ -402,12 +365,12 @@ export default function PurchasePage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Booking Status:</span>
                   <span className={`font-semibold ${
-                    booking.bookingStatus === 'confirmed' ? 'text-green-600' :
+                    booking.bookingStatus === 'done' ? 'text-green-600' :
                     booking.bookingStatus === 'cancelled' ? 'text-red-600' :
                     booking.bookingStatus === 'pending' ? 'text-yellow-600' :
                     'text-gray-600'
                   }`}>
-                    {booking.bookingStatus === 'confirmed' ? 'Confirmed' :
+                    {booking.bookingStatus === 'done' ? 'Done' :
                      booking.bookingStatus === 'cancelled' ? 'Cancelled' :
                      booking.bookingStatus === 'pending' ? 'Pending' :
                      'Pending'}
@@ -417,69 +380,50 @@ export default function PurchasePage() {
             </div>
           </div>
 
-          {/* Right Column: QR Code and Actions */}
+          {/* Right Column: PayOS Actions + QR/Link */}
           <div className="space-y-6">
-            {/* QR Code Display - Next to Movie Info */}
-            {showQRCode && qrCode && !isFromHistory && 
+            {/* Action to create PayOS payment link */}
+            {paymentStatus !== 'completed' && paymentStatus !== 'success' && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold mb-4">Create Payment</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Click “Order” to create a PayOS checkout link and show a scannable QR.
+                </p>
+                <button
+                  onClick={handleGenerateQR}
+                  disabled={processing}
+                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {processing ? 'Creating…' : 'Order'}
+                </button>
+              </div>
+            )}
+
+            {/* PayOS QR Display - Next to Movie Info */}
+            {showQRCode && !isFromHistory && 
              paymentStatus !== 'completed' && paymentStatus !== 'success' && (
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold mb-4">Scan QR Code to Transfer</h2>
-                
-                {/* Bank Account Info */}
-                {bankInfo && (
-                  <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-2">Quét mã để chuyển tiền đến</p>
-                    <div className="text-lg font-bold text-gray-900 mb-1">{bankInfo.accountName}</div>
-                    <div className="text-sm text-gray-700">{bankInfo.accountNumber}</div>
-                    <div className="text-xs text-gray-500 mt-1">{bankInfo.bankName}</div>
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <span className="text-sm text-gray-600">Amount: </span>
-                      <span className="text-lg font-bold text-blue-600">{bankInfo.amount.toLocaleString()}đ</span>
-                    </div>
-                  </div>
-                )}
+                <h2 className="text-xl font-semibold mb-4">Pay with PayOS</h2>
 
                 <div className="flex flex-col items-center justify-center py-4">
                   <div className="bg-white p-4 rounded-lg border-2 border-gray-300 shadow-sm">
-                    <img src={qrCode} alt="Payment QR Code" className="w-64 h-64" />
+                    {/* Render QR for the PayOS checkoutUrl to make it scannable */}
+                    {paymentUrl ? <QRCodeSVG value={paymentUrl} size={256} /> : null}
                   </div>
-                  <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-                    <span className="text-red-600 font-semibold">TECHCOMBANK</span>
-                    <span className="text-red-600">VIETQR</span>
-                    <span className="text-green-600">napas 247</span>
-                  </div>
+
+                  {paymentUrl && (
+                    <a
+                      href={paymentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
+                    >
+                      Open PayOS Checkout
+                    </a>
+                  )}
                 </div>
 
-                {/* Payment Made and Cancel Payment Buttons */}
-                {paymentStatus !== 'completed' && paymentStatus !== 'success' && (
-                  <div className="mt-6 space-y-3">
-                    <button
-                      onClick={handleMarkAsPurchased}
-                      disabled={processing || paymentStatus === 'pending'}
-                      className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {processing ? 'Processing...' : paymentStatus === 'pending' ? 'Waiting for Admin Confirmation' : 'Payment Made'}
-                    </button>
-                    
-                    {paymentStatus !== 'pending' && (
-                      <button
-                        onClick={handleCancelPayment}
-                        disabled={processing || paymentStatus === 'completed' || paymentStatus === 'success'}
-                        className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Cancel Payment
-                      </button>
-                    )}
-                    
-                    {paymentStatus === 'pending' && (
-                      <div className="w-full p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-center text-yellow-800 font-semibold">
-                          Waiting for admin confirmation. Seats are locked for 24 hours.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Old manual confirmation removed for PayOS flow */}
               </div>
             )}
 

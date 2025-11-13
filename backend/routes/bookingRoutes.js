@@ -7,9 +7,7 @@ import {
   createBooking,
   getBookingById,
   generatePaymentQR,
-  markAsPurchased,
   cancelPayment,
-  confirmPayment,
   confirmCashPayment,
   getUserPurchaseHistory,
   getAllPurchaseHistory,
@@ -32,13 +30,13 @@ router.post('/', protect, createBooking);
 router.post('/payment/qr', protect, generatePaymentQR);
 
 // Payment flow: user marks as purchased
-router.post('/payment/purchased', protect, markAsPurchased);
+// router.post('/payment/purchased', protect, markAsPurchased); // deprecated
 
 // Payment flow: user cancels payment
-router.post('/payment/cancel', protect, cancelPayment);
+router.post('/payment/cancel', protect, cancelPayment); // used by PayOS cancel return
 
 // Admin: confirm or reject payment
-router.post('/payment/confirm', protect, adminOnly, confirmPayment);
+// router.post('/payment/confirm', protect, adminOnly, confirmPayment); // deprecated
 
 // Employee: confirm cash payment
 router.post('/payment/confirm-cash', protect, adminOrEmployee, confirmCashPayment);
