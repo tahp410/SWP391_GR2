@@ -10,6 +10,25 @@ export const useAuth = () => {
   return context;
 };
 
+const getStoredAuth = () => {
+  try {
+    const localToken = localStorage.getItem('token');
+    const localUser = localStorage.getItem('user');
+    if (localToken && localUser) {
+      return { token: localToken, user: JSON.parse(localUser), remember: true };
+    }
+
+    const sessionToken = sessionStorage.getItem('token');
+    const sessionUser = sessionStorage.getItem('user');
+    if (sessionToken && sessionUser) {
+      return { token: sessionToken, user: JSON.parse(sessionUser), remember: false };
+    }
+  } catch (err) {
+    console.error('Error parsing stored auth:', err);
+  }
+  return { token: null, user: null, remember: false };
+};
+
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
@@ -18,13 +37,10 @@ export const AuthProvider = ({ children }) => {
   // Khởi tạo user data từ localStorage
   useEffect(() => {
     try {
-      const token = localStorage.getItem('token');
-      const userData = localStorage.getItem('user');
-      
-      setIsAuthenticated(!!token);
-      
-      if (userData) {
-        setUser(JSON.parse(userData));
+      const stored = getStoredAuth();
+      setIsAuthenticated(Boolean(stored.token));
+      if (stored.user) {
+        setUser(stored.user);
       }
     } catch (error) {
       console.error('Error initializing auth:', error);
@@ -38,11 +54,13 @@ export const AuthProvider = ({ children }) => {
   // Kiểm tra authentication trên mỗi lần localStorage thay đổi
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('token');
-      setIsAuthenticated(!!token);
+      const stored = getStoredAuth();
+      setIsAuthenticated(Boolean(stored.token));
       
-      if (!token) {
+      if (!stored.token) {
         setUser(null);
+      } else if (stored.user) {
+        setUser(stored.user);
       }
     };
 
@@ -57,9 +75,16 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const login = (token, userData) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
+  const login = (token, userData, remember = false) => {
+    const storage = remember ? localStorage : sessionStorage;
+    const opposite = remember ? sessionStorage : localStorage;
+
+    storage.setItem('token', token);
+    storage.setItem('user', JSON.stringify(userData));
+
+    opposite.removeItem('token');
+    opposite.removeItem('user');
+
     setIsAuthenticated(true);
     setUser(userData);
   };
@@ -67,6 +92,8 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     setIsAuthenticated(false);
     setUser(null);
   };

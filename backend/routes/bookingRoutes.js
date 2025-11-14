@@ -7,9 +7,8 @@ import {
   createBooking,
   getBookingById,
   generatePaymentQR,
-  // markAsPurchased, // deprecated in favor of PayOS flow
-  cancelPayment,   // exposed for PayOS cancel return
-  // confirmPayment,  // deprecated - handled by PayOS webhook
+  cancelPayment,
+  confirmCashPayment,
   getUserPurchaseHistory,
   getAllPurchaseHistory,
   getBookingByQR,
@@ -39,9 +38,12 @@ router.post('/payment/cancel', protect, cancelPayment); // used by PayOS cancel 
 // Admin: confirm or reject payment
 // router.post('/payment/confirm', protect, adminOnly, confirmPayment); // deprecated
 
+// Employee: confirm cash payment
+router.post('/payment/confirm-cash', protect, adminOrEmployee, confirmCashPayment);
+
 // Purchase history (must be before /:id route)
 router.get('/history/user', protect, getUserPurchaseHistory);
-router.get('/history/all', protect, adminOnly, getAllPurchaseHistory);
+router.get('/history/all', protect, adminOrEmployee, getAllPurchaseHistory);
 
 // Employee check-in routes
 router.post('/checkin/qr', protect, adminOrEmployee, getBookingByQR);

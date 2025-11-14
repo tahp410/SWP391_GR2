@@ -1,198 +1,158 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { CheckCircle, XCircle, QrCode, ArrowLeft, Search, Camera, Upload, Image as ImageIcon } from 'lucide-react';
+import { CheckCircle, XCircle, QrCode, ArrowLeft, Search, Camera, X } from 'lucide-react';
 import jsQR from 'jsqr';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
 
 export default function CheckInPage() {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
+  const [token, setToken] = useState(() => localStorage.getItem('token') || sessionStorage.getItem('token'));
   const [qrCodeData, setQrCodeData] = useState('');
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const fileInputRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [bookingId, setBookingId] = useState('');
 
-  // Xử lý paste ảnh từ clipboard
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const scanIntervalRef = useRef(null);
+
+  // Update token when it changes in localStorage/sessionStorage
   useEffect(() => {
-    const handlePaste = async (e) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
+    const handleStorageChange = () => {
+      const newToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+      setToken(newToken);
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    // Also check periodically
+    const interval = setInterval(() => {
+      const newToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (newToken !== token) {
+        setToken(newToken);
+      }
+    }, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [token]);
 
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-          e.preventDefault();
-          const blob = items[i].getAsFile();
-          await handleImageFile(blob);
-          break;
+  // Xử lý quét QR từ camera
+  const scanQRFromCamera = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    // Chỉ quét khi video đã sẵn sàng
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+    // Set canvas kích thước bằng video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Vẽ frame hiện tại từ video lên canvas
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Lấy image data
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    // Quét QR code
+    try {
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert',
+      });
+
+      if (code) {
+        console.log('QR code detected:', code.data);
+        // Tìm Booking ID từ QR code data
+        const qrData = code.data;
+        if (qrData) {
+          setQrCodeData(qrData);
+          handleScanQRWithData(qrData);
+          stopCamera();
         }
       }
-    };
+    } catch (error) {
+      console.error('Error scanning QR:', error);
+    }
+  };
 
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
+  // Khởi động camera
+  const startCamera = async () => {
+    try {
+      console.log('Starting camera...');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setIsCameraActive(true);
+        console.log('Camera started successfully');
+
+        // Bắt đầu scanning interval
+        if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+        scanIntervalRef.current = setInterval(() => {
+          scanQRFromCamera();
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      const message =
+        error.name === 'NotAllowedError'
+          ? 'Không được phép truy cập camera. Vui lòng kiểm tra quyền truy cập'
+          : 'Không thể truy cập camera. Vui lòng kiểm tra kết nối';
+      showNotification(message, 'error');
+    }
+  };
+
+  // Dừng camera
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  // Auto-start camera khi component mount
+  useEffect(() => {
+    startCamera();
+    return () => stopCamera();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Đọc QR code từ ảnh
-  const readQRFromImage = (imageFile) => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      img.onload = () => {
-        console.log('Image loaded for QR scan. Dimensions:', img.width, 'x', img.height);
-        
-        // Scale image nếu quá lớn để tăng tốc độ xử lý
-        const maxSize = 800;
-        let width = img.width;
-        let height = img.height;
-        
-        if (width > maxSize || height > maxSize) {
-          if (width > height) {
-            height = (height * maxSize) / width;
-            width = maxSize;
-          } else {
-            width = (width * maxSize) / height;
-            height = maxSize;
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        const imageData = ctx.getImageData(0, 0, width, height);
-        console.log('ImageData created. Size:', width, 'x', height);
-        
-        try {
-          const code = jsQR(imageData.data, width, height, {
-            inversionAttempts: "dontInvert",
-          });
-          
-          if (code) {
-            console.log('QR code found:', code.data);
-            resolve(code.data);
-          } else {
-            console.log('No QR code found in image. Trying with inversion...');
-            // Thử lại với inversion
-            const codeInverted = jsQR(imageData.data, width, height, {
-              inversionAttempts: "attemptBoth",
-            });
-            
-            if (codeInverted) {
-              console.log('QR code found with inversion:', codeInverted.data);
-              resolve(codeInverted.data);
-            } else {
-              console.log('Still no QR code found after inversion attempts.');
-              reject(new Error('Không tìm thấy QR code trong ảnh. Vui lòng thử ảnh khác hoặc nhập Booking ID trực tiếp.'));
-            }
-          }
-        } catch (qrError) {
-          console.error('Error during jsQR processing:', qrError);
-          reject(new Error('Lỗi khi xử lý QR code từ ảnh.'));
-        }
-      };
-
-      img.onerror = (error) => {
-        console.error('Error loading image for QR scan:', error);
-        reject(new Error('Không thể tải ảnh.'));
-      };
-
-      img.src = URL.createObjectURL(imageFile);
-    });
-  };
-
-  // Xử lý file ảnh
-  const handleImageFile = async (file) => {
-    if (!file || !file.type.startsWith('image/')) {
-      setNotification({ type: 'error', message: 'Vui lòng chọn file ảnh' });
-      return;
-    }
-
-    setLoading(true);
-    setNotification(null);
-    
-    // Cleanup preview cũ nếu có
-    if (imagePreview) {
-      URL.revokeObjectURL(imagePreview);
-    }
-    
-    const previewUrl = URL.createObjectURL(file);
-    setSelectedImage(file);
-    setImagePreview(previewUrl);
-
-    try {
-      const qrData = await readQRFromImage(file);
-      setQrCodeData(qrData);
-      setNotification({ type: 'success', message: 'Đã đọc QR code từ ảnh thành công!' });
-      
-      // Tự động scan sau khi đọc QR
-      setTimeout(() => {
-        handleScanQRWithData(qrData);
-      }, 500);
-    } catch (err) {
-      setNotification({ 
-        type: 'error', 
-        message: err.message || 'Không thể đọc QR code từ ảnh. Vui lòng thử ảnh khác.' 
-      });
-      setSelectedImage(null);
-      URL.revokeObjectURL(previewUrl);
-      setImagePreview(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Cleanup khi component unmount hoặc khi xóa ảnh
-  useEffect(() => {
-    return () => {
-      if (imagePreview) {
-        URL.revokeObjectURL(imagePreview);
-      }
-    };
-  }, [imagePreview]);
-
-  // Xử lý chọn file
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleImageFile(file);
-    }
-  };
-
-  // Xử lý drag & drop
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      handleImageFile(file);
-    }
+  // Show notification
+  const showNotification = (message, type) => {
+    setNotification({ type, message });
+    setTimeout(() => {
+      setNotification(null);
+    }, 4000);
   };
 
   // Scan với dữ liệu QR code hoặc Booking ID
   const handleScanQRWithData = async (data = null) => {
     const dataToScan = data || qrCodeData.trim();
     if (!dataToScan) {
-      setNotification({ type: 'error', message: 'Vui lòng nhập Booking ID hoặc upload ảnh QR code' });
+      setNotification({ type: 'error', message: 'Vui lòng quét QR code hoặc nhập Booking ID' });
       return;
     }
 
@@ -201,30 +161,18 @@ export default function CheckInPage() {
     setBooking(null);
 
     try {
-      // Nếu là Booking ID ngắn (dưới 20 ký tự và không có dấu {} hoặc []), coi như Booking ID
-      let qrDataToSend = dataToScan;
-      
-      // Nếu có vẻ như Booking ID (không phải JSON), thử parse thành JSON với bookingId
-      if (dataToScan.length < 50 && !dataToScan.includes('{') && !dataToScan.includes('[')) {
-        // Có thể là Booking ID trực tiếp
-        console.log('Treating as Booking ID:', dataToScan);
-      } else {
-        // Có thể là JSON string từ QR code
-        console.log('Treating as QR code data:', dataToScan);
+      if (!token) {
+        setNotification({ type: 'error', message: 'Bạn cần đăng nhập để quét mã. Vui lòng đăng nhập tài khoản nhân viên.' });
+        setLoading(false);
+        return;
       }
 
-      const response = await axios.post(
-        `${API_BASE}/bookings/checkin/qr`,
-        { qrCodeData: qrDataToSend },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const headers = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.post(`${API_BASE}/bookings/checkin/qr`, { qrCodeData: dataToScan }, headers);
 
       if (response.data.success) {
         setBooking(response.data.booking);
-        setNotification({ 
-          type: 'success', 
-          message: 'Đã tìm thấy thông tin vé' 
-        });
+        setNotification({ type: 'success', message: 'Đã phát hiện QR code!' });
       }
     } catch (err) {
       const message = err?.response?.data?.message || 'Không tìm thấy thông tin vé';
@@ -248,11 +196,14 @@ export default function CheckInPage() {
     setNotification(null);
 
     try {
-      const response = await axios.post(
-        `${API_BASE}/bookings/checkin/confirm`,
-        { qrCodeData: qrCodeData.trim() },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      if (!token) {
+        setNotification({ type: 'error', message: 'Bạn cần đăng nhập để quét mã. Vui lòng đăng nhập tài khoản nhân viên.' });
+        setProcessing(false);
+        return;
+      }
+
+      const headers = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.post(`${API_BASE}/bookings/checkin/confirm`, { qrCodeData: qrCodeData.trim() }, headers);
 
       if (response.data.success) {
         setNotification({ type: 'success', message: 'Check-in thành công!' });
@@ -331,86 +282,71 @@ export default function CheckInPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: QR Code Input */}
+          {/* Left: Camera QR Code Input */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Camera className="h-6 w-6" />
-              Quét QR Code
+              Quét QR Code Vé
             </h2>
             
             <div className="space-y-4">
-              {/* Upload ảnh Section */}
+              {/* Camera Preview */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Upload ảnh QR Code
+                  📱 Camera Máy
                 </label>
-                
-                {/* Drag & Drop Area */}
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                    isDragging 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  {imagePreview ? (
-                    <div className="space-y-3">
-                      <img 
-                        src={imagePreview} 
-                        alt="Preview" 
-                        className="max-w-full max-h-48 mx-auto rounded-lg"
-                      />
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => {
-                            if (imagePreview) {
-                              URL.revokeObjectURL(imagePreview);
-                            }
-                            setSelectedImage(null);
-                            setImagePreview(null);
-                            setQrCodeData('');
-                          }}
-                          className="text-sm text-red-600 hover:text-red-700"
-                        >
-                          Xóa ảnh
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <ImageIcon className="h-12 w-12 mx-auto text-gray-400" />
-                      <p className="text-sm text-gray-600">
-                        Kéo thả ảnh vào đây hoặc
-                      </p>
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto"
-                      >
-                        <Upload className="h-4 w-4" />
-                        Chọn ảnh
-                      </button>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Hoặc paste ảnh (Ctrl+V / Cmd+V)
-                      </p>
-                    </div>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
+                <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                  <canvas
+                    ref={canvasRef}
                     className="hidden"
                   />
+
+                  {/* Scan Frame Overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {/* Corner Marks */}
+                    <div className="absolute inset-0">
+                      {/* Top-left */}
+                      <div className="absolute top-12 left-12 w-8 h-8 border-t-2 border-l-2 border-green-500" />
+                      {/* Top-right */}
+                      <div className="absolute top-12 right-12 w-8 h-8 border-t-2 border-r-2 border-green-500" />
+                      {/* Bottom-left */}
+                      <div className="absolute bottom-12 left-12 w-8 h-8 border-b-2 border-l-2 border-green-500" />
+                      {/* Bottom-right */}
+                      <div className="absolute bottom-12 right-12 w-8 h-8 border-b-2 border-r-2 border-green-500" />
+                    </div>
+
+                    {/* Center Dot */}
+                    <div className="absolute w-1 h-1 bg-green-500 rounded-full" />
+
+                    {/* Animated Scanning Line */}
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-b from-green-500 to-transparent animate-pulse" />
+                  </div>
+
+                  {/* Loading Indicator */}
+                  {!isCameraActive && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                      <div className="text-white text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-3" />
+                        <p>⏳ Camera đang khởi động...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+                <p className="text-sm text-gray-600 mt-2 text-center">
+                  🔄 Đang quét QR code...
+                </p>
               </div>
 
               {/* Booking ID Input Section */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hoặc nhập Booking ID
+                  📋 Hoặc nhập Booking ID
                 </label>
                 <input
                   type="text"
@@ -421,28 +357,28 @@ export default function CheckInPage() {
                       handleScanQR();
                     }
                   }}
-                  placeholder="Nhập Booking ID"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-mono"
+                  placeholder="Nhập Booking ID hoặc QR code data"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
-                <p className="text-xs text-gray-500 mt-2">
-                  Nhập Booking ID từ vé hoặc upload/paste ảnh QR code ở trên để tự động đọc
+                <p className="text-xs text-gray-500 mt-1">
+                  Nhập Booking ID trực tiếp hoặc đợi camera tự động quét
                 </p>
               </div>
 
               <button
                 onClick={handleScanQR}
-                disabled={loading || (!qrCodeData.trim() && !selectedImage)}
+                disabled={loading || !qrCodeData.trim()}
                 className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Đang quét...
+                    Đang tìm kiếm...
                   </>
                 ) : (
                   <>
                     <Search className="h-5 w-5" />
-                    Quét QR Code
+                    Tìm Kiếm Vé
                   </>
                 )}
               </button>
