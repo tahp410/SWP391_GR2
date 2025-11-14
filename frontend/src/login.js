@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Mail, Lock, Film, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
@@ -15,6 +15,13 @@ const Login = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    const storedRemember = localStorage.getItem('rememberMe');
+    if (storedRemember === 'true') {
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -92,7 +99,16 @@ const Login = () => {
         email: data.email,
         role: data.role
       };
-      login(data.token, userData);
+      login(data.token, userData, rememberMe);
+
+      // Thêm dòng này để lưu token vào localStorage
+      localStorage.setItem('token', data.token);
+
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+      } else {
+        localStorage.removeItem('rememberMe');
+      }
 
       // Reset form
       setFormData({
@@ -101,8 +117,14 @@ const Login = () => {
       });
       setErrors({});
 
-      // Chuyển hướng đến trang chủ
-      window.location.href = '/home';
+      // Chuyển hướng theo role
+      if (data.role === 'admin') {
+        window.location.href = '/admin';
+      } else if (data.role === 'employee') {
+        window.location.href = '/employee';
+      } else {
+        window.location.href = '/home';
+      }
 
     } catch (error) {
       setErrors({

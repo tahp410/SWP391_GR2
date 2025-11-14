@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import Header from './Header';
+import { useNavigate } from 'react-router-dom';
 
 
 const HomePage = () => {
   const [hotMovies, setHotMovies] = useState([]);
   const [nowShowingMovies, setNowShowingMovies] = useState([]);
   const [recommendedMovies, setRecommendedMovies] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
   Promise.all([
@@ -29,7 +31,14 @@ const HomePage = () => {
   };
 
   const MovieCard = ({ movie, showTime }) => (
-    <div className="movie-card">
+    <div
+      className="movie-card"
+      onClick={() => {
+        // Điều hướng sang trang /movies và truyền movieId qua state
+        navigate('/movies', { state: { showMovieId: movie._id } });
+      }}
+      style={{ cursor: 'pointer' }}
+    >
       <div className="movie-poster">
         <img src={movie.poster || "https://kenh14cdn.com/203336854389633024/2023/10/28/nvccspecial4x5-16984613995241980487333-16984631876291891509482.jpg"} alt={movie.title} />
       </div>
@@ -72,8 +81,18 @@ const HomePage = () => {
             <h1>Cinema Experience</h1>
             <p>Immerse yourself in the ultimate movie experience with premium comfort, cutting-edge technology, and the best blockbusters</p>
             <div className="hero-buttons">
-              <button className="btn-primary">Explore Movies</button>
-              <button className="btn-secondary">View Showtimes</button>
+              <button
+                className="btn-primary"
+                onClick={() => navigate('/movies')}
+              >
+                Explore Movies
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => navigate('/showtimes')}
+              >
+                View Showtimes
+              </button>
             </div>
           </div>
         </div>

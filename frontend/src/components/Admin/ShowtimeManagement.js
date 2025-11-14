@@ -248,8 +248,21 @@ const ShowtimeManagement = () => {
         resetForm();
         showMessage('success', `Lịch chiếu ${state.editingShowtime ? 'cập nhật' : 'tạo'} thành công!`);
       } else {
-        const error = await response.json();
-        showMessage('error', error.message || 'Thao tác thất bại');
+        let errorMsg = 'Thao tác thất bại';
+        try {
+          const error = await response.json();
+          errorMsg = error.message || errorMsg;
+        } catch {}
+        // Nếu lỗi là conflict giờ chiếu thì đóng modal và show message
+        if (
+          errorMsg.toLowerCase().includes('conflict') ||
+          errorMsg.toLowerCase().includes('trùng giờ')
+        ) {
+          resetForm(); // Đóng modal
+          showMessage('error', errorMsg);
+        } else {
+          showMessage('error', errorMsg);
+        }
       }
     } catch (error) {
       showMessage('error', 'Lỗi khi lưu lịch chiếu');
@@ -449,11 +462,14 @@ const ShowtimeManagement = () => {
               value={state.selectedTheater}
               onChange={(e) => setState(prev => ({ ...prev, selectedTheater: e.target.value }))}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={!state.selectedBranch}
             >
               <option value="">Tất cả phòng chiếu</option>
               {state.theaters
-                .filter(theater => theater.branch === state.selectedBranch || theater.branch?._id === state.selectedBranch)
+                .filter(theater => 
+                  !state.selectedBranch || 
+                  theater.branch === state.selectedBranch || 
+                  theater.branch?._id === state.selectedBranch
+                )
                 .map((theater) => (
                   <option key={theater._id} value={theater._id}>
                     {theater.name}
@@ -527,7 +543,6 @@ const ShowtimeManagement = () => {
                     required
                     value={state.formData.theater}
                     onChange={(e) => updateFormField('theater', e.target.value)}
-                    disabled={!state.formData.branch}
                   >
                     <option value="">Chọn phòng chiếu</option>
                     {filteredTheaters.map((theater) => (
@@ -732,13 +747,6 @@ const ShowtimeManagement = () => {
                   >
                     <Edit2 size={16} />
                     Sửa
-                  </button>
-                  <button
-                    onClick={() => handleDelete(showtime._id)}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                    Xóa
                   </button>
                 </div>
               </div>
