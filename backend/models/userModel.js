@@ -77,6 +77,12 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Trạng thái khóa tài khoản: true = bị khóa (không thể đăng nhập)
+    isLocked: {
+      type: Boolean,
+      default: false,
+    },
+
     // Token để reset mật khẩu (dùng cho chức năng quên mật khẩu)
     resetPasswordToken: {
       type: String,

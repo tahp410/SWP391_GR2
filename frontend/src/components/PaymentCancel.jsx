@@ -13,7 +13,8 @@ export default function PaymentCancel() {
     const prev = params.get('prev');
     const back = params.get('back');
     const bookingId = params.get('bookingId');
-    const token = localStorage.getItem('token') || '';
+    const from = params.get('from');
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
 
     const proceedNavigate = () => {
       if (back) {
@@ -23,6 +24,9 @@ export default function PaymentCancel() {
       if (prev) {
         const prevUrl = prev.includes('?') ? `${prev}&fromCancel=1` : `${prev}?fromCancel=1`;
         return navigate(prevUrl, { replace: true });
+      }
+      if (from === 'employee') {
+        return navigate('/employee', { replace: true });
       }
       return navigate('/home', { replace: true });
     };

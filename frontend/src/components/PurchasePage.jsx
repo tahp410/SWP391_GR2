@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -10,7 +10,7 @@ export default function PurchasePage() {
   const { bookingId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   
   // Check if coming from purchase history
   const isFromHistory = location.state?.fromHistory || 
@@ -19,29 +19,13 @@ export default function PurchasePage() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentStatus, setPaymentStatus] = useState(null); // 'success', 'failed', 'pending', null
   const [notification, setNotification] = useState(null);
   const [ticketQRCode, setTicketQRCode] = useState(null);
   const [showQRCode, setShowQRCode] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState(null);
 
-  useEffect(() => {
-    fetchBooking();
-  }, [bookingId]);
-
-  // Auto refresh khi payment pending hoặc success nhưng chưa có ticketQRCode
-  useEffect(() => {
-    if (paymentStatus === 'pending' || (paymentStatus === 'success' && !ticketQRCode)) {
-      const interval = setInterval(() => {
-        fetchBooking();
-      }, 3000); // Refresh mỗi 3 giây
-
-      return () => clearInterval(interval);
-    }
-  }, [paymentStatus, ticketQRCode, bookingId]);
-
-  const fetchBooking = async () => {
+  const fetchBooking = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API_BASE}/bookings/${bookingId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -66,9 +50,6 @@ export default function PurchasePage() {
         setPaymentStatus('success');
       } else if (data.booking.paymentStatus === 'pending') {
         setPaymentStatus('pending');
-        if (data.booking.paymentMethod) {
-          setPaymentMethod(data.booking.paymentMethod);
-        }
       } else if (data.booking.paymentStatus === 'failed') {
         setPaymentStatus('failed');
       } else {
@@ -80,7 +61,22 @@ export default function PurchasePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [bookingId, token]);
+
+  useEffect(() => {
+    fetchBooking();
+  }, [fetchBooking]);
+
+  // Auto refresh khi payment pending hoặc success nhưng chưa có ticketQRCode
+  useEffect(() => {
+    if (paymentStatus === 'pending' || (paymentStatus === 'success' && !ticketQRCode)) {
+      const interval = setInterval(() => {
+        fetchBooking();
+      }, 3000); // Refresh mỗi 3 giây
+
+      return () => clearInterval(interval);
+    }
+  }, [paymentStatus, ticketQRCode, fetchBooking]);
 
   // Step 1: Generate PayOS payment link (and render as QR)
   const handleGenerateQR = async () => {
@@ -132,43 +128,6 @@ export default function PurchasePage() {
     }
   };
   
-
-  // Cancel payment - release seats and reset statuses
-  const handleCancelPayment = async () => {
-    if (!window.confirm('Are you sure you want to cancel the payment? This will release your seats.')) {
-      return;
-    }
-
-    setProcessing(true);
-    setNotification(null);
-
-    try {
-      const response = await axios.post(
-        `${API_BASE}/bookings/payment/cancel`,
-        { bookingId: bookingId },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (response.data.success) {
-        setPaymentStatus(null);
-        setBooking(response.data.booking);
-        setNotification({ 
-          type: 'success', 
-          message: 'Payment cancelled. Seats released.' 
-        });
-        // Refresh booking to get updated status
-        await fetchBooking();
-      }
-    } catch (err) {
-      const message = err?.response?.data?.message || 'Failed to cancel payment';
-      setNotification({ 
-        type: 'error', 
-        message: message 
-      });
-    } finally {
-      setProcessing(false);
-    }
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';

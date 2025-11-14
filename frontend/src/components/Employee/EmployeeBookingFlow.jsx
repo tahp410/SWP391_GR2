@@ -1,84 +1,41 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import '../../style/employee.css';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
 
-export default function BookingFlow() {
+export default function EmployeeBookingFlow() {
   const { movieId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // step 1 - showtime filters
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [branches, setBranches] = useState([]);
   const [branchId, setBranchId] = useState('');
   const [showtimes, setShowtimes] = useState([]);
-  const [selectedShowtime, setSelectedShowtime] = useState(null);
+  const [movie, setMovie] = useState(null);
+
+  // step 2 - seats
   const [seatData, setSeatData] = useState({ seats: [] });
   const [selectedSeatIds, setSelectedSeatIds] = useState([]);
+  const [selectedShowtime, setSelectedShowtime] = useState(null);
   const [holding, setHolding] = useState(false);
+
+  // step 3 - extras
   const [combos, setCombos] = useState([]);
   const [comboQty, setComboQty] = useState({});
   const [voucherId, setVoucherId] = useState('');
-  const [movie, setMovie] = useState(null);
   const [voucherDiscount, setVoucherDiscount] = useState(0);
   const [voucherMsg, setVoucherMsg] = useState('');
-  const [token, setToken] = useState(() => localStorage.getItem('token') || sessionStorage.getItem('token'));
-  const userJson = localStorage.getItem('user');
+  const [paymentMethod, setPaymentMethod] = useState(''); // 'cash' | 'qr'
+
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const userJson = localStorage.getItem('user') || sessionStorage.getItem('user');
   const user = userJson ? JSON.parse(userJson) : null;
 
-  // Update token when it changes in localStorage/sessionStorage
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const newToken = localStorage.getItem('token') || sessionStorage.getItem('token');
-      setToken(newToken);
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    // Also check on component mount/focus
-    const interval = setInterval(() => {
-      const newToken = localStorage.getItem('token') || sessionStorage.getItem('token');
-      if (newToken !== token) {
-        setToken(newToken);
-      }
-    }, 1000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, [token]);
-
-  // Smooth back behavior when coming from PayOS cancel
-  const fromCancel = (() => {
-    try {
-      const p = new URLSearchParams(location.search);
-      return p.get('fromCancel') === '1';
-    } catch { return false; }
-  })();
-
-  useEffect(() => {
-    if (!fromCancel) return;
-    // Insert a history state and intercept the immediate back to avoid returning to PayOS
-    const handler = () => {
-      // Luôn đưa người dùng về danh sách phim thay vì quay về PayOS
-      navigate('/movies', { replace: true });
-    };
-    // Push a dummy state so the first back triggers popstate here
-    try { window.history.pushState(null, '', window.location.href); } catch {}
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
-  }, [fromCancel, navigate, movieId]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await axios.get(`${API_BASE}/branches`);
-        setBranches(data);
-      } catch {}
-    })();
-  }, []);
-
-  // Read preselected branch/date from query (?branchId=&date=YYYY-MM-DD)
+  // read query
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const qBranch = params.get('branchId');
@@ -87,27 +44,25 @@ export default function BookingFlow() {
     if (qDate) setDate(qDate);
   }, [location.search]);
 
-  // Fetch movie detail to show header
+  // bootstrap data
   useEffect(() => {
     (async () => {
       try {
-        if (movieId) {
-          const { data } = await axios.get(`${API_BASE}/movies/${movieId}`);
-          setMovie(data);
-        }
-      } catch {}
+        const [{ data: brs }, { data: mv }, { data: cmb }] = await Promise.all([
+          axios.get(`${API_BASE}/branches`),
+          movieId ? axios.get(`${API_BASE}/movies/${movieId}`) : Promise.resolve({ data: null }),
+          axios.get(`${API_BASE}/combos`)
+        ]);
+        setBranches(Array.isArray(brs) ? brs : []);
+        setMovie(mv || null);
+        setCombos(Array.isArray(cmb) ? cmb : []);
+      } catch {
+        // ignore
+      }
     })();
   }, [movieId]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await axios.get(`${API_BASE}/combos`);
-        setCombos(data || []);
-      } catch {}
-    })();
-  }, []);
-
+  // list showtimes
   useEffect(() => {
     (async () => {
       try {
@@ -116,29 +71,39 @@ export default function BookingFlow() {
         if (branchId) params.set('branchId', branchId);
         if (movieId) params.set('movieId', movieId);
         const { data } = await axios.get(`${API_BASE}/showtimes/public?${params.toString()}`);
-        setShowtimes(data);
-        // Auto-pick the first upcoming showtime
-        if (!selectedShowtime && data && data.length) {
-          setSelectedShowtime(data[0]);
-          await fetchSeats(data[0]._id);
-        }
-      } catch {}
+        setShowtimes(data || []);
+      } catch {
+        setShowtimes([]);
+      }
     })();
   }, [date, branchId, movieId]);
 
+  // seats by showtime
   const fetchSeats = async (showtimeId) => {
     const { data } = await axios.get(`${API_BASE}/bookings/showtimes/${showtimeId}/seats`);
     setSeatData(data);
   };
 
-  // Poll seats while a showtime is selected
   useEffect(() => {
     if (!selectedShowtime) return;
+    fetchSeats(selectedShowtime._id);
     const id = setInterval(() => fetchSeats(selectedShowtime._id), 5000);
     return () => clearInterval(id);
   }, [selectedShowtime]);
 
-  // Totals (compute early so hooks below can reference safely)
+  // derived
+  const seatsGrouped = useMemo(() => {
+    const byRow = {};
+    for (const s of seatData.seats || []) {
+      byRow[s.row] = byRow[s.row] || [];
+      byRow[s.row].push(s);
+    }
+    for (const row of Object.keys(byRow)) {
+      byRow[row].sort((a, b) => a.number - b.number);
+    }
+    return byRow;
+  }, [seatData]);
+
   const selectedSeats = (seatData.seats || []).filter((s) => selectedSeatIds.includes(s.seatId));
   const seatsSubtotal = selectedSeats.reduce((sum, s) => sum + (s.price || 0), 0);
   const combosSubtotal = Object.entries(comboQty).reduce((sum, [id, q]) => {
@@ -147,7 +112,7 @@ export default function BookingFlow() {
   }, 0);
   const subtotal = seatsSubtotal + combosSubtotal;
 
-  // Voucher preview: fetch all vouchers and compute discount
+  // voucher preview
   useEffect(() => {
     let active = true;
     (async () => {
@@ -175,12 +140,19 @@ export default function BookingFlow() {
         if (!active) return;
         setVoucherDiscount(disc);
         setVoucherMsg(`Áp dụng: giảm ${disc.toLocaleString()}đ`);
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     })();
     return () => { active = false; };
   }, [voucherId, selectedShowtime, seatsSubtotal, combosSubtotal, branchId, movieId]);
+
+  // actions
+  const formatTime = (iso) => {
+    try {
+      return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso));
+    } catch {
+      return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    }
+  };
 
   const toggleSeat = (seatId) => {
     setSelectedSeatIds((prev) => prev.includes(seatId) ? prev.filter((s) => s !== seatId) : [...prev, seatId]);
@@ -196,17 +168,18 @@ export default function BookingFlow() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       await fetchSeats(selectedShowtime._id);
-    } catch (e) {
-      // ignore
-    } finally {
-      setHolding(false);
-    }
+    } catch { /* ignore */ }
+    finally { setHolding(false); }
   };
 
   const confirmBooking = async () => {
     if (!selectedShowtime || selectedSeatIds.length === 0) return;
+    if (!paymentMethod) {
+      alert('Vui lòng chọn phương thức thanh toán (Tiền mặt hoặc QR)');
+      return;
+    }
     try {
-      // Auto-hold seats that aren't reserved yet
+      // ensure seats are held
       const seatsMap = Object.fromEntries((seatData.seats || []).map(s => [String(s.seatId), s]));
       const notHeld = selectedSeatIds.filter(id => {
         const s = seatsMap[String(id)];
@@ -230,12 +203,17 @@ export default function BookingFlow() {
         });
       const { data } = await axios.post(
         `${API_BASE}/bookings`,
-        { showtimeId: selectedShowtime._id, seats, combos: combosPayload, voucher: voucherId || null },
+        { 
+          showtimeId: selectedShowtime._id, 
+          seats, 
+          combos: combosPayload, 
+          voucher: voucherId || null,
+          paymentMethod 
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      // Navigate to purchase page after successful booking
       if (data?.booking?._id) {
-        navigate(`/purchase/${data.booking._id}`);
+        navigate(`/employee/purchase/${data.booking._id}`);
       } else {
         alert('Đặt vé thành công');
         setSelectedSeatIds([]);
@@ -247,155 +225,58 @@ export default function BookingFlow() {
     }
   };
 
-  const seatsGrouped = useMemo(() => {
-    const byRow = {};
-    for (const s of seatData.seats || []) {
-      byRow[s.row] = byRow[s.row] || [];
-      byRow[s.row].push(s);
-    }
-    for (const row of Object.keys(byRow)) {
-      byRow[row].sort((a, b) => a.number - b.number);
-    }
-    return byRow;
-  }, [seatData]);
-
-  const vipRowsNote = useMemo(() => {
-    const rows = Object.entries(seatsGrouped)
-      .filter(([, arr]) => arr.some((s) => s.type === 'vip'))
-      .map(([row]) => row)
-      .sort();
-    return rows;
-  }, [seatsGrouped]);
-
-  const coupleRangesNote = useMemo(() => {
-    const result = {};
-    for (const [row, arr] of Object.entries(seatsGrouped)) {
-      const couples = arr.filter((s) => s.type === 'couple').map((s) => s.number).sort((a,b)=>a-b);
-      if (!couples.length) continue;
-      const ranges = [];
-      let start = couples[0], prev = couples[0];
-      for (let i = 1; i < couples.length; i++) {
-        if (couples[i] === prev + 1) {
-          prev = couples[i];
-        } else {
-          ranges.push([start, prev]);
-          start = couples[i];
-          prev = couples[i];
-        }
-      }
-      ranges.push([start, prev]);
-      result[row] = ranges;
-    }
-    return result;
-  }, [seatsGrouped]);
-
-  const formatTime = (iso) => {
-    try {
-      return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(iso));
-    } catch {
-      const d = new Date(iso);
-      return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    }
-  };
-
-  const formatTimeRange = (startIso, endIso) => `${formatTime(startIso)} - ${formatTime(endIso)}`;
-
-  
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="flex items-start justify-between mb-4">
-        <h1 className="text-2xl font-semibold text-gray-800">Đặt vé</h1>
-        <button
-          onClick={() => {
-            navigate('/showtimes');
-          }}
-          className="px-3 py-2 rounded border hover:bg-gray-100"
-        >
-          Quay lại
-        </button>
+    <div className="emp-page">
+      <div className="emp-header">
+        <h1>Đặt vé cho khách</h1>
+        <ol className="emp-steps">
+          <li>Chọn phim</li>
+          <li className={selectedShowtime ? '' : 'active'}>Chọn suất chiếu</li>
+          <li className={selectedShowtime ? 'active' : ''}>Chọn ghế</li>
+          <li>Thanh toán</li>
+          <li>Xác nhận/in vé</li>
+        </ol>
       </div>
 
-      {/* Movie header */}
+      {/* Movie header brief */}
       {movie && (
-        <div className="mb-6 border rounded-lg bg-white p-4 flex gap-4">
-          <img src={movie.poster} alt={movie.title} className="w-24 h-36 object-cover rounded" />
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-800">{movie.title}</h2>
+        <div className="emp-card" style={{ padding: 12, marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div className="emp-card-thumb" style={{ width: 80, aspectRatio: '2 / 3' }}>
+              <img src={movie.poster} alt={movie.title} />
             </div>
-            <div className="text-sm text-gray-600 mt-1">
-              <span className="mr-3">Đạo diễn: {movie.director || '-'}</span>
-              <span className="mr-3">Thời lượng: {movie.duration} phút</span>
-              <span>Ngôn ngữ: {movie.language}</span>
+            <div>
+              <div className="emp-card-title" style={{ fontSize: 16 }}>{movie.title}</div>
             </div>
-            {selectedShowtime?.price && (
-              <div className="mt-2 text-sm">
-                <span className="mr-4">Giá ghế thường: <b>{(selectedShowtime.price.standard || 0).toLocaleString()}đ</b></span>
-                {selectedShowtime.price.vip ? (
-                  <span className="mr-4">VIP: <b>{selectedShowtime.price.vip.toLocaleString()}đ</b></span>
-                ) : null}
-                {selectedShowtime.price.couple ? (
-                  <span>Couple: <b>{selectedShowtime.price.couple.toLocaleString()}đ</b></span>
-                ) : null}
-              </div>
-            )}
-            {/* Area note from seat layout types */}
-            {(vipRowsNote.length || Object.keys(coupleRangesNote).length) ? (
-              <div className="mt-2 text-xs text-gray-700 space-y-1">
-                {vipRowsNote.length ? (
-                  <div>Hàng VIP: <b>{vipRowsNote.join(', ')}</b></div>
-                ) : null}
-                {Object.keys(coupleRangesNote).length ? (
-                  <div>
-                    Ghế Couple: {Object.entries(coupleRangesNote).map(([row, ranges]) => (
-                      <span key={row} className="mr-2">{row}{ranges.map(([a,b],i)=>` ${a}${a!==b?'-'+b:''}`)}</span>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="text-gray-500">Các ghế còn lại là ghế thường.</div>
-              </div>
-            ) : null}
           </div>
         </div>
       )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column: filters, combos, voucher */}
         <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border px-3 py-2 rounded w-full" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Rạp (chi nhánh)</label>
-            <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="border px-3 py-2 rounded w-full">
-              <option value="">Tất cả</option>
-              {branches.map((b) => (
-                <option key={b._id} value={b._id}>{b.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Suất chiếu</label>
-            <div className="flex flex-wrap gap-2">
-              {showtimes.map((st) => (
-                <button
-                  key={st._id}
-                  onClick={async () => { setSelectedShowtime(st); setSelectedSeatIds([]); await fetchSeats(st._id); }}
-                  className={`px-3 py-2 rounded border transition text-left ${selectedShowtime?._id === st._id ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-100'}`}
-                >
-                  <div className="font-semibold">{formatTimeRange(st.startTime, st.endTime)}</div>
-                  <span className={`mt-1 inline-block text-xs px-2 py-0.5 rounded ${selectedShowtime?._id === st._id ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}>
-                    {st.theater?.name || ''}
-                  </span>
-                </button>
-              ))}
+          {/* Filters */}
+          <div className="emp-card" style={{ padding: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+              <div>
+                <label className="emp-section-title" style={{ margin: 0, fontSize: 14 }}>Ngày</label>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border px-3 py-2 rounded w-full" />
+              </div>
+              <div>
+                <label className="emp-section-title" style={{ margin: 0, fontSize: 14 }}>Chi nhánh</label>
+                <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="border px-3 py-2 rounded w-full">
+                  <option value="">Tất cả</option>
+                  {branches.map((b) => (
+                    <option key={b._id} value={b._id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
           {/* Combos */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Combo</label>
+          <div className="emp-card" style={{ padding: 16 }}>
+            <label className="emp-section-title" style={{ marginTop: 0 }}>Combo</label>
             <div className="space-y-2">
               {combos.map((c) => (
                 <div key={c._id} className="flex items-center justify-between gap-2">
@@ -413,28 +294,46 @@ export default function BookingFlow() {
           </div>
 
           {/* Voucher */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Voucher code</label>
+          <div className="emp-card" style={{ padding: 16 }}>
+            <label className="emp-section-title" style={{ marginTop: 0 }}>Voucher code</label>
             <input value={voucherId} onChange={(e) => setVoucherId(e.target.value)} className="border px-3 py-2 rounded w-full" placeholder="Nhập mã voucher (tùy chọn)" />
             {voucherMsg ? <div className={`text-xs mt-1 ${voucherDiscount>0?'text-green-600':'text-gray-500'}`}>{voucherMsg}</div> : null}
           </div>
 
           {/* Summary */}
-          <div className="border rounded p-4 space-y-2 bg-white">
+          <div className="emp-card" style={{ padding: 16 }}>
             <div className="text-sm text-gray-600">Ghế đã chọn: {selectedSeats.length ? selectedSeats.map(s => `${s.row}${s.number}`).join(', ') : '—'}</div>
-            <div className="flex justify-between text-sm"><span>Tiền vé</span><span>{seatsSubtotal.toLocaleString()}đ</span></div>
+            <div className="flex justify-between text-sm mt-2"><span>Tiền vé</span><span>{seatsSubtotal.toLocaleString()}đ</span></div>
             <div className="flex justify-between text-sm"><span>Combo</span><span>{combosSubtotal.toLocaleString()}đ</span></div>
             {voucherDiscount>0 && (
               <div className="flex justify-between text-sm text-green-700"><span>Giảm giá (voucher)</span><span>-{voucherDiscount.toLocaleString()}đ</span></div>
             )}
-            <div className="border-t pt-2 flex justify-between font-semibold"><span>Tạm tính</span><span>{(subtotal - voucherDiscount).toLocaleString()}đ</span></div>
+            <div className="border-t pt-2 mt-2 flex justify-between font-semibold"><span>Tạm tính</span><span>{(subtotal - voucherDiscount).toLocaleString()}đ</span></div>
           </div>
         </div>
 
-        {/* Right column: seat map */}
+        {/* Right column: showtimes then seat map */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="border rounded p-4 bg-white">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="emp-card" style={{ padding: 16 }}>
+            <div className="emp-section-title" style={{ marginTop: 0 }}>Suất chiếu</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {showtimes.map((st) => (
+                <button
+                  key={st._id}
+                  onClick={async () => { setSelectedShowtime(st); setSelectedSeatIds([]); await fetchSeats(st._id); }}
+                  className={`emp-chip ${selectedShowtime?._id === st._id ? 'emp-chip--active' : ''}`}
+                  title={`${st.theater?.name || ''}`}
+                >
+                  <div style={{ fontWeight: 600 }}>{formatTime(st.startTime)} - {formatTime(st.endTime)}</div>
+                  {st.theater?.name ? <div className="emp-chip-sub">{st.theater.name}</div> : null}
+                </button>
+              ))}
+              {!showtimes.length && <div className="emp-loading">Không có suất chiếu phù hợp.</div>}
+            </div>
+          </div>
+
+          <div className="emp-card" style={{ padding: 16 }}>
+            <div className="mb-3 flex items-center justify-between">
               <div className="text-sm text-gray-600">Màn hình</div>
               <div className="flex items-center gap-3 text-xs">
                 <div className="flex items-center gap-1"><span className="w-4 h-4 inline-block border bg-white" /> Trống</div>
@@ -443,7 +342,8 @@ export default function BookingFlow() {
                 <div className="flex items-center gap-1"><span className="w-4 h-4 inline-block border bg-gray-700" /> Đã đặt</div>
               </div>
             </div>
-            <div className="space-y-2 overflow-auto max-h-[60vh]">
+
+            <div className="space-y-2 overflow-auto" style={{ maxHeight: '60vh' }}>
               {Object.entries(seatsGrouped).map(([row, arr]) => (
                 <div key={row} className="flex items-center gap-2">
                   <div className="w-10 text-right mr-2 text-sm text-gray-600">{row}</div>
@@ -477,11 +377,37 @@ export default function BookingFlow() {
                 </div>
               ))}
             </div>
+
+            {/* Payment method selection */}
+            <div className="mt-4 p-3 border rounded bg-white flex flex-wrap items-center gap-4">
+              <div className="text-sm font-medium text-gray-700 mr-2">Phương thức thanh toán:</div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="cash"
+                  checked={paymentMethod === 'cash'}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                />
+                <span>Tiền mặt</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="qr"
+                  checked={paymentMethod === 'qr'}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                />
+                <span>Mã QR</span>
+              </label>
+            </div>
+
             <div className="mt-4 flex items-center gap-3">
               <button onClick={holdSelected} disabled={!selectedShowtime || selectedSeatIds.length===0 || holding} className="bg-yellow-500 text-white px-4 py-2 rounded shadow disabled:opacity-50">
                 Giữ chỗ 1 phút
               </button>
-              <button onClick={confirmBooking} disabled={!selectedShowtime || selectedSeatIds.length===0} className="bg-blue-600 text-white px-4 py-2 rounded shadow disabled:opacity-50">
+              <button onClick={confirmBooking} disabled={!selectedShowtime || selectedSeatIds.length===0 || !paymentMethod} className="bg-blue-600 text-white px-4 py-2 rounded shadow disabled:opacity-50">
                 Xác nhận đặt vé
               </button>
             </div>

@@ -8,10 +8,18 @@ export default function PaymentReturn() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const bookingId = params.get('bookingId');
+    const from = params.get('from');
     // PayOS may provide code/status as well, but webhook will finalize the status.
     if (bookingId) {
-      // Redirect to ticket detail page which shows QR when completed
-      navigate(`/purchase/${encodeURIComponent(bookingId)}`, { replace: true });
+      if (from === 'employee') {
+        navigate(`/employee/purchase/${encodeURIComponent(bookingId)}`, {
+          replace: true,
+          state: { fromPayOS: true },
+        });
+      } else {
+        // Redirect to ticket detail page which shows QR when completed
+        navigate(`/purchase/${encodeURIComponent(bookingId)}`, { replace: true });
+      }
     } else {
       // Fallback: go to purchase history if bookingId is missing
       navigate('/purchase-history', { replace: true });

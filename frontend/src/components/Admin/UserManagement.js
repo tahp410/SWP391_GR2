@@ -85,7 +85,7 @@ const UserManagementContent = () => {
   // Modal States - Quản lý các popup windows
   const [viewing, setViewing] = useState(null); // User đang được xem chi tiết
   const [editing, setEditing] = useState(null); // User đang được chỉnh sửa
-  const [deleting, setDeleting] = useState(null); // User đang được xóa
+  const [locking, setLocking] = useState(null); // User đang được khóa/mở khóa
   const [creating, setCreating] = useState(null); // Dữ liệu user mới đang tạo
   const [createErrors, setCreateErrors] = useState({}); // Lỗi validation khi tạo user
   const [editErrors, setEditErrors] = useState({}); // Lỗi validation khi edit user
@@ -123,7 +123,8 @@ const UserManagementContent = () => {
         gender: user.gender === 'male' ? 'Nam' : user.gender === 'female' ? 'Nữ' : 'Khác', // Convert gender
         province: user.province || 'N/A', // Tỉnh/thành (N/A nếu không có)
         city: user.city || 'N/A',        // Quận/huyện (N/A nếu không có)
-        createdAt: new Date(user.createdAt).toLocaleDateString('vi-VN') // Format ngày theo VN
+        createdAt: new Date(user.createdAt).toLocaleDateString('vi-VN'), // Format ngày theo VN
+        isLocked: !!user.isLocked
       }));
       
       setUsers(transformedUsers); // Cập nhật state với dữ liệu đã transform
@@ -359,35 +360,18 @@ const UserManagementContent = () => {
     }
   };
 
-  const commitDelete = async () => {
-    if (!deleting) return;
-    
-    console.log('Starting delete for user:', deleting);
-    
+  const commitLockToggle = async () => {
+    if (!locking) return;
     try {
       const token = localStorage.getItem('token');
-      console.log('Token exists:', !!token);
-      
-      console.log('Making DELETE request to:', `http://localhost:5000/api/users/${deleting.id}`);
-      
-      const response = await axios.delete(`http://localhost:5000/api/users/${deleting.id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
-      
-      console.log('Delete successful:', response.data);
-      
-      setDeleting(null);
-      // Refresh danh sách users từ database
+      const url = `http://localhost:5000/api/users/${locking.id}/${locking.isLocked ? 'unlock' : 'lock'}`;
+      await axios.put(url, {}, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      setLocking(null);
       await fetchUsers();
-      
-      // Hiển thị thông báo thành công
-      alert('✅ Xóa người dùng thành công!');
+      alert(locking.isLocked ? '✅ Đã mở khóa tài khoản!' : '✅ Đã khóa tài khoản!');
     } catch (e) {
-      console.error('Delete failed:', e);
-      console.error('Error response:', e.response?.data);
-      
-      const errorMsg = e.response?.data?.message || e.message;
-      alert('Xóa thất bại: ' + errorMsg);
+      console.error('Lock/Unlock failed:', e);
+      alert('Thao tác thất bại: ' + (e.response?.data?.message || e.message));
     }
   };
 
@@ -446,6 +430,7 @@ const UserManagementContent = () => {
               <TableHeaderCell>Địa chỉ</TableHeaderCell>
               <TableHeaderCell>Vai trò</TableHeaderCell>
               <TableHeaderCell>Ngày tạo</TableHeaderCell>
+              <TableHeaderCell>Trạng thái</TableHeaderCell>
               <TableHeaderCell>Thao tác</TableHeaderCell>
             </tr>
           </thead>
@@ -494,10 +479,17 @@ const UserManagementContent = () => {
                   </TableCell>
                   <TableCell>{u.createdAt}</TableCell>
                   <TableCell>
+                    {u.isLocked ? (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">Đã khóa</span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">Đang hoạt động</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <div className="flex gap-4 text-sm">
                       <button className="text-black hover:underline" onClick={() => setViewing(u)}>Xem</button>
                       <button className="text-black hover:underline" onClick={() => { setEditing({ ...u }); setEditErrors({}); }}>Sửa</button>
-                      <button className="text-black hover:underline" onClick={() => setDeleting(u)}>Xóa</button>
+                      <button className="text-black hover:underline" onClick={() => setLocking(u)}>{u.isLocked ? 'Mở khóa' : 'Khóa'}</button>
                     </div>
                   </TableCell>
                 </tr>
@@ -715,14 +707,18 @@ const UserManagementContent = () => {
         )}
       </Modal>
 
-      {/* Delete Modal */}
-      <Modal open={!!deleting} title="Xóa người dùng" onClose={() => setDeleting(null)}>
-        {deleting && (
+      {/* Lock/Unlock Modal */}
+      <Modal open={!!locking} title={locking?.isLocked ? 'Mở khóa người dùng' : 'Khóa người dùng'} onClose={() => setLocking(null)}>
+        {locking && (
           <div className="space-y-4">
-            <p className="text-black">Bạn có chắc muốn xóa người dùng "{deleting.name}"?</p>
+            <p className="text-black">
+              {locking.isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'} "{locking.name}"?
+            </p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setDeleting(null)} className="px-4 py-2 bg-gray-100 text-black rounded">Hủy</button>
-              <button onClick={commitDelete} className="px-4 py-2 bg-red-600 text-white rounded">Xóa</button>
+              <button onClick={() => setLocking(null)} className="px-4 py-2 bg-gray-100 text-black rounded">Hủy</button>
+              <button onClick={commitLockToggle} className={`px-4 py-2 text-white rounded ${locking.isLocked ? 'bg-green-600' : 'bg-red-600'}`}>
+                {locking.isLocked ? 'Mở khóa' : 'Khóa'}
+              </button>
             </div>
           </div>
         )}
