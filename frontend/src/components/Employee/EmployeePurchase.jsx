@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { CheckCircle, XCircle, Printer, Loader2, ArrowLeft } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import '../../style/employee.css';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
@@ -18,6 +19,7 @@ export default function EmployeePurchase() {
   const [notification, setNotification] = useState(null);
   const [printSuccess, setPrintSuccess] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState(null);
+  const [showQRCode, setShowQRCode] = useState(false);
   const printRef = useRef(null);
 
   const fetchBooking = useCallback(async () => {
@@ -102,15 +104,12 @@ export default function EmployeePurchase() {
       if (response.data?.success) {
         const payUrl = response.data.paymentUrl || null;
         setPaymentUrl(payUrl);
+        setShowQRCode(Boolean(payUrl));
 
         setNotification({
           type: 'success',
-          message: payUrl ? 'Đã tạo link PayOS, mở checkout cho khách.' : 'Đã tạo yêu cầu thanh toán.'
+          message: payUrl ? 'Đã tạo link PayOS. Hiển thị QR code cho khách quét hoặc nhấn nút mở trang thanh toán.' : 'Đã tạo yêu cầu thanh toán.'
         });
-
-        if (payUrl) {
-          window.open(payUrl, '_blank');
-        }
       }
     } catch (err) {
       const message = err?.response?.data?.message || 'Không thể tạo link PayOS';
@@ -724,19 +723,59 @@ export default function EmployeePurchase() {
                 )}
               </button>
 
-              <div className="mt-6 space-y-4 text-sm">
-                {paymentUrl && (
-                  <>
-                    <a
-                      href={paymentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block text-center py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700"
-                    >
-                      Mở PayOS Checkout
-                    </a>
-                    <div className="text-xs text-gray-500 break-all text-center">{paymentUrl}</div>
-                  </>
+              <div className="mt-6">
+                {showQRCode && paymentUrl && (
+                  <div className="pt-6 border-t">
+                    <h3 className="text-lg font-semibold text-blue-600 mb-4 text-center">Thông tin thanh toán</h3>
+                    
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="bg-white p-4 rounded-lg border-2 border-blue-500 shadow-lg mb-4">
+                        <QRCodeSVG value={paymentUrl} size={280} />
+                      </div>
+
+                      <div className="text-center mb-4">
+                        <p className="text-sm text-gray-700 font-medium mb-2">
+                          Cho khách quét mã QR bằng ứng dụng ngân hàng
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          hoặc nhấn nút bên dưới để mở trang thanh toán
+                        </p>
+                      </div>
+
+                      <a
+                        href={paymentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 text-center transition-colors"
+                      >
+                        Mở trang thanh toán PayOS
+                      </a>
+
+                      <div className="mt-6 p-4 bg-blue-50 rounded-lg w-full border border-blue-200">
+                        <h4 className="text-sm font-semibold text-blue-900 mb-2">Thông tin đơn hàng</h4>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Booking ID:</span>
+                            <span className="font-medium text-gray-900">{booking._id.substring(0, 12)}...</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Số tiền:</span>
+                            <span className="font-bold text-blue-600">{booking.totalAmount.toLocaleString()}đ</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Ghế:</span>
+                            <span className="font-medium text-gray-900">
+                              {booking.seats?.map(s => `${s.row}${s.number}`).join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-gray-500 mt-4 text-center">
+                        Sau khi khách thanh toán thành công, trang sẽ tự động chuyển sang bước in vé.
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

@@ -16,6 +16,10 @@ export default function PurchasePage() {
   const isFromHistory = location.state?.fromHistory || 
                         new URLSearchParams(location.search).get('fromHistory') === 'true';
   
+  // Check if user is employee (from URL path or user data)
+  const isEmployee = location.pathname.includes('/employee/') || 
+                     new URLSearchParams(location.search).get('from') === 'employee';
+  
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -100,30 +104,21 @@ export default function PurchasePage() {
       if (response.data?.success) {
         const payUrl = response.data.paymentUrl || null;
   
-        // Cập nhật state để vẫn hiển thị QR / nút mở link nếu cần
+        // Hiển thị QR code và link thanh toán ngay trên trang
         setPaymentUrl(payUrl);
         setShowQRCode(Boolean(payUrl));
         
         setNotification({
           type: 'success',
           message: payUrl
-            ? 'Redirecting to PayOS Checkout...'
+            ? 'Mã thanh toán đã được tạo. Quét mã QR hoặc nhấn nút bên dưới để thanh toán.'
             : 'PayOS link generated.'
         });
-  
-        // 👉 Auto direct sang trang thanh toán
-        if (payUrl) {
-          // dùng replace để tránh tạo thêm entry lịch sử (mượt khi Back)
-          window.location.replace(payUrl);
-          return; // tránh chạy finally setProcessing(false) ngay khi chuyển trang
-        }
       }
     } catch (err) {
       const message = err?.response?.data?.message || 'Failed to create PayOS link';
       setNotification({ type: 'error', message });
     } finally {
-      // Nếu đã redirect, dòng này sẽ không chạy (do return ở trên). 
-      // Nếu không có payUrl hoặc lỗi thì vẫn reset processing như bình thường.
       setProcessing(false);
     }
   };
@@ -168,10 +163,10 @@ export default function PurchasePage() {
           <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <p className="text-gray-600 mb-4">Booking not found</p>
           <button
-            onClick={() => navigate('/home')}
+            onClick={() => navigate(isEmployee ? '/employee' : '/home')}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
-            Go to Home
+            {isEmployee ? 'Quay về trang nhân viên' : 'Go to Home'}
           </button>
         </div>
       </div>
@@ -188,29 +183,36 @@ export default function PurchasePage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Purchase Ticket</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            {isEmployee ? 'Thông tin vé đã đặt' : 'Purchase Ticket'}
+          </h1>
           <div className="flex items-center gap-4">
             <button
               onClick={() => {
-                // Lấy movieId, branchId, date từ booking/showtime
-                const movieId = booking?.showtime?.movie?._id || booking?.showtime?.movie || '';
-                const branchId = booking?.showtime?.branch?._id || booking?.showtime?.branch || '';
-                const start = booking?.showtime?.startTime ? new Date(booking.showtime.startTime) : null;
-                const yyyyMmDd = start ? `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}` : '';
-                if (movieId) {
-                  const qp = [];
-                  if (branchId) qp.push(`branchId=${branchId}`);
-                  if (yyyyMmDd) qp.push(`date=${yyyyMmDd}`);
-                  const qs = qp.length ? `?${qp.join('&')}` : '';
-                  navigate(`/booking/${movieId}${qs}`);
+                if (isEmployee) {
+                  // Employee: quay về danh sách vé
+                  navigate('/employee/bookings');
                 } else {
-                  navigate('/movies');
+                  // Customer: quay về trang đặt vé
+                  const movieId = booking?.showtime?.movie?._id || booking?.showtime?.movie || '';
+                  const branchId = booking?.showtime?.branch?._id || booking?.showtime?.branch || '';
+                  const start = booking?.showtime?.startTime ? new Date(booking.showtime.startTime) : null;
+                  const yyyyMmDd = start ? `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}` : '';
+                  if (movieId) {
+                    const qp = [];
+                    if (branchId) qp.push(`branchId=${branchId}`);
+                    if (yyyyMmDd) qp.push(`date=${yyyyMmDd}`);
+                    const qs = qp.length ? `?${qp.join('&')}` : '';
+                    navigate(`/booking/${movieId}${qs}`);
+                  } else {
+                    navigate('/movies');
+                  }
                 }
               }}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-800"
             >
               <ArrowLeft className="h-5 w-5" />
-              Back
+              {isEmployee ? 'Quay lại' : 'Back'}
             </button>
           </div>
         </div>
@@ -354,35 +356,42 @@ export default function PurchasePage() {
             </div>
           </div>
 
-          {/* Right Column: PayOS Actions + QR/Link */}
+          {/* Right Column: PayOS Actions + QR/Link (Only for customers) */}
           <div className="space-y-6">
-            {/* Action to create PayOS payment link */}
-            {paymentStatus !== 'completed' && paymentStatus !== 'success' && (
+            {/* Action to create PayOS payment link - Only show for customers */}
+            {!isEmployee && paymentStatus !== 'completed' && paymentStatus !== 'success' && (
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold mb-4">Create Payment</h2>
+                <h2 className="text-xl font-semibold mb-4">Thanh toán PayOS</h2>
                 <p className="text-sm text-gray-600 mb-4">
-                  Click “Order” to create a PayOS checkout link and show a scannable QR.
+                  Nhấn "Tạo link PayOS" để tạo mã thanh toán. Thông tin thanh toán sẽ hiển thị ngay trên trang này.
                 </p>
                 <button
                   onClick={handleGenerateQR}
                   disabled={processing}
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
-                  {processing ? 'Creating…' : 'Order'}
+                  {processing ? 'Đang tạo...' : 'Tạo link PayOS'}
                 </button>
               </div>
             )}
 
-            {/* PayOS QR Display - Next to Movie Info */}
-            {showQRCode && !isFromHistory && 
-             paymentStatus !== 'completed' && paymentStatus !== 'success' && (
+            {/* PayOS QR Display - Hiển thị ngay trên trang (Only for customers) */}
+            {!isEmployee && showQRCode && paymentStatus !== 'completed' && paymentStatus !== 'success' && (
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold mb-4">Pay with PayOS</h2>
+                <h2 className="text-xl font-semibold mb-4 text-blue-600">Thông tin thanh toán</h2>
 
                 <div className="flex flex-col items-center justify-center py-4">
-                  <div className="bg-white p-4 rounded-lg border-2 border-gray-300 shadow-sm">
-                    {/* Render QR for the PayOS checkoutUrl to make it scannable */}
-                    {paymentUrl ? <QRCodeSVG value={paymentUrl} size={256} /> : null}
+                  <div className="bg-white p-4 rounded-lg border-2 border-blue-500 shadow-lg mb-4">
+                    {paymentUrl ? <QRCodeSVG value={paymentUrl} size={280} /> : null}
+                  </div>
+
+                  <div className="text-center mb-4">
+                    <p className="text-sm text-gray-700 font-medium mb-2">
+                      Quét mã QR bằng ứng dụng ngân hàng
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      hoặc nhấn nút bên dưới để mở trang thanh toán
+                    </p>
                   </div>
 
                   {paymentUrl && (
@@ -390,14 +399,36 @@ export default function PurchasePage() {
                       href={paymentUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
+                      className="w-full bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors text-center"
                     >
-                      Open PayOS Checkout
+                      Mở trang thanh toán PayOS
                     </a>
                   )}
-                </div>
 
-                {/* Old manual confirmation removed for PayOS flow */}
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg w-full border border-blue-200">
+                    <h3 className="text-sm font-semibold text-blue-900 mb-2">Thông tin đơn hàng</h3>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Booking ID:</span>
+                        <span className="font-medium text-gray-900">{booking._id.substring(0, 12)}...</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Số tiền:</span>
+                        <span className="font-bold text-blue-600">{booking.totalAmount.toLocaleString()}đ</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Ghế:</span>
+                        <span className="font-medium text-gray-900">
+                          {booking.seats?.map(s => `${s.row}${s.number}`).join(', ')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-500 mt-4 text-center">
+                    Sau khi thanh toán thành công, trang sẽ tự động cập nhật và hiển thị mã QR vé của bạn.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -458,41 +489,62 @@ export default function PurchasePage() {
             {/* Action Buttons */}
             <div className="bg-white rounded-lg shadow p-6">
               <div className="space-y-3">
-                {paymentStatus === 'success' ? (
-                  <button
-                    onClick={() => navigate('/purchase-history')}
-                    className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700"
-                  >
-                    View Purchase History
-                  </button>
-                ) : paymentStatus === 'pending' ? (
-                  <button
-                    onClick={() => navigate('/purchase-history')}
-                    className="w-full bg-yellow-600 text-white py-3 rounded-lg font-semibold hover:bg-yellow-700"
-                  >
-                    View Purchase History
-                  </button>
-                ) : paymentStatus === 'failed' ? (
-                  <button
-                    onClick={() => {
-                      const movieId = showtime?.movie?._id || showtime?.movie || '';
-                      if (movieId) {
-                        navigate(`/booking/${movieId}`);
-                      } else {
-                        navigate('/movies');
-                      }
-                    }}
-                    className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700"
-                  >
-                    Return to Order Seat - Movie / Confirm
-                  </button>
-                ) : null}
-                <button
-                  onClick={() => navigate('/home')}
-                  className="w-full bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300"
-                >
-                  Go to Home
-                </button>
+                {isEmployee ? (
+                  // Employee buttons
+                  <>
+                    <button
+                      onClick={() => navigate('/employee/bookings')}
+                      className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700"
+                    >
+                      Quay về danh sách vé
+                    </button>
+                    <button
+                      onClick={() => navigate('/employee')}
+                      className="w-full bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300"
+                    >
+                      Trang chủ nhân viên
+                    </button>
+                  </>
+                ) : (
+                  // Customer buttons
+                  <>
+                    {paymentStatus === 'success' ? (
+                      <button
+                        onClick={() => navigate('/purchase-history')}
+                        className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700"
+                      >
+                        View Purchase History
+                      </button>
+                    ) : paymentStatus === 'pending' ? (
+                      <button
+                        onClick={() => navigate('/purchase-history')}
+                        className="w-full bg-yellow-600 text-white py-3 rounded-lg font-semibold hover:bg-yellow-700"
+                      >
+                        View Purchase History
+                      </button>
+                    ) : paymentStatus === 'failed' ? (
+                      <button
+                        onClick={() => {
+                          const movieId = showtime?.movie?._id || showtime?.movie || '';
+                          if (movieId) {
+                            navigate(`/booking/${movieId}`);
+                          } else {
+                            navigate('/movies');
+                          }
+                        }}
+                        className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700"
+                      >
+                        Return to Order Seat - Movie / Confirm
+                      </button>
+                    ) : null}
+                    <button
+                      onClick={() => navigate('/home')}
+                      className="w-full bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300"
+                    >
+                      Go to Home
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Mail, Lock, Film, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -15,6 +16,9 @@ const Login = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+
+  // Lấy location trước đó nếu có
+  const from = location.state?.from || '/';
 
   useEffect(() => {
     const storedRemember = localStorage.getItem('rememberMe');
@@ -117,13 +121,14 @@ const Login = () => {
       });
       setErrors({});
 
-      // Chuyển hướng theo role
+      // Chuyển hướng theo role hoặc về trang trước đó
       if (data.role === 'admin') {
         window.location.href = '/admin';
       } else if (data.role === 'employee') {
         window.location.href = '/employee';
       } else {
-        window.location.href = '/home';
+        // Nếu user thường, redirect về trang trước đó hoặc home
+        window.location.href = from;
       }
 
     } catch (error) {

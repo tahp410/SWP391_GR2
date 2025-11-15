@@ -1,0 +1,15 @@
+/* Highlight animation for search results */
+@keyframes highlight-pulse {
+  0%, 100% {
+    background-color: transparent;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+  50% {
+    background-color: rgba(251, 191, 36, 0.3);
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.5);
+  }
+}
+
+.highlight-pulse {
+  animation: highlight-pulse 3s ease-in-out;
+}
