@@ -24,11 +24,11 @@ const voucherSchema = mongoose.Schema(
     minPurchase: {
       type: Number,
       default: 0,
+    },
     // If maxDiscount is 0, it means there is no maximum discount limit.
     maxDiscount: {
       type: Number,
       default: 0,
-    },
     },
     startDate: {
       type: Date,
