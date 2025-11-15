@@ -452,7 +452,7 @@ const BranchManagement = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="form-label">SốĐiện Thoại *</label>
+                      <label className="form-label">Số Điện Thoại *</label>
                       <input
                         type="text"
                         name="contact.phone"
@@ -476,7 +476,7 @@ const BranchManagement = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="form-label">Giờ MởCửa</label>
+                      <label className="form-label">Giờ Mở Cửa</label>
                       <input
                         type="time"
                         name="operatingHours.open"
@@ -498,7 +498,7 @@ const BranchManagement = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">TiệnÍch (ngăn cách bởi dấu phẩy)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tiện Ích (ngăn cách bởi dấu phẩy)</label>
                     <input
                       type="text"
                       name="facilities"
@@ -510,7 +510,7 @@ const BranchManagement = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">URL HìnhẢnh</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">URL Hình Ảnh</label>
                     <input
                       type="url"
                       name="image"

@@ -112,6 +112,11 @@ const VoucherPage = () => {
       return;
     }
 
+    // Không cho phép thay đổi startDate nếu đang tạo mới
+    if (name === "startDate" && !selectedVoucher) {
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -147,8 +152,31 @@ const VoucherPage = () => {
     // 🗓️ Validate ngày hợp lý
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    
     if (start > end) {
       setFormError("⚠️ Ngày bắt đầu không được sau ngày kết thúc.");
+      return;
+    }
+
+    // Validate: endDate phải sau startDate ít nhất 1 ngày
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    if (diffDays < 1) {
+      setFormError("⚠️ Ngày kết thúc phải sau ngày bắt đầu ít nhất 1 ngày.");
+      return;
+    }
+
+    // Validate: minPurchase phải >= 0
+    if (formData.minPurchase && Number(formData.minPurchase) < 0) {
+      setFormError("⚠️ Giá trị đơn hàng tối thiểu không được âm.");
+      return;
+    }
+
+    // Validate: discountValue phải > 0
+    if (!formData.discountValue || Number(formData.discountValue) <= 0) {
+      setFormError("⚠️ Giá trị giảm giá phải lớn hơn 0.");
       return;
     }
 
@@ -240,7 +268,7 @@ const VoucherPage = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa voucher này?")) return;
+    if (!window.confirm("Bạn có chắc chắn muốn ẩn voucher này? Voucher sẽ không bị xóa khỏi hệ thống.")) return;
     const token = getToken();
     if (!token) {
       showMessage("error", "Bạn chưa đăng nhập.");
@@ -249,17 +277,28 @@ const VoucherPage = () => {
 
     try {
       setLoading(true);
+      // Ẩn voucher bằng cách set isActive = false thay vì xóa
+      const voucherToHide = vouchers.find(v => v._id === id);
+      if (!voucherToHide) {
+        showMessage("error", "Không tìm thấy voucher");
+        return;
+      }
+
       const res = await fetch(`${API_BASE_URL}/vouchers/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ...voucherToHide, isActive: false }),
       });
       const resJson = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showMessage("error", resJson.message || "Lỗi khi xóa voucher");
+        showMessage("error", resJson.message || "Lỗi khi ẩn voucher");
         return;
       }
-      setVouchers((prev) => prev.filter((v) => v._id !== id));
-      showMessage("success", "Xóa voucher thành công");
+      setVouchers((prev) => prev.map(v => v._id === id ? { ...v, isActive: false } : v));
+      showMessage("success", "Đã ẩn voucher thành công");
     } catch (err) {
       console.error(err);
       showMessage("error", "Lỗi kết nối server");
@@ -277,6 +316,8 @@ const VoucherPage = () => {
     setShowModal(false);
     setSelectedVoucher(null);
     setFormError("");
+    // Set startDate mặc định là ngày hiện tại khi tạo mới
+    const today = new Date().toISOString().slice(0, 10);
     setFormData({
       code: "",
       description: "",
@@ -284,7 +325,7 @@ const VoucherPage = () => {
       discountValue: "",
       minPurchase: "",
       maxDiscount: "",
-      startDate: "",
+      startDate: today,
       endDate: "",
       isActive: true,
     });
@@ -321,7 +362,26 @@ const VoucherPage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <button onClick={() => { setFormError(""); setShowModal(true); }} className="btn btn-primary flex items-center gap-2">
+            <button 
+              onClick={() => { 
+                setFormError(""); 
+                setSelectedVoucher(null);
+                const today = new Date().toISOString().slice(0, 10);
+                setFormData({
+                  code: "",
+                  description: "",
+                  discountType: "percentage",
+                  discountValue: "",
+                  minPurchase: "",
+                  maxDiscount: "",
+                  startDate: today,
+                  endDate: "",
+                  isActive: true,
+                });
+                setShowModal(true); 
+              }} 
+              className="btn btn-primary flex items-center gap-2"
+            >
               <Plus size={18} /> Thêm Voucher
             </button>
           </div>
@@ -455,7 +515,16 @@ const VoucherPage = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="form-label">Start date *</label>
-                      <input name="startDate" value={formData.startDate} onChange={handleInputChange} type="date" className="form-input" required />
+                      <input 
+                        name="startDate" 
+                        value={formData.startDate} 
+                        onChange={handleInputChange} 
+                        type="date" 
+                        className="form-input disabled:bg-gray-100 disabled:cursor-not-allowed" 
+                        required 
+                        disabled={!selectedVoucher}
+                        title={!selectedVoucher ? "Ngày bắt đầu được đặt là ngày hôm nay khi tạo voucher mới" : ""}
+                      />
                     </div>
                     <div>
                       <label className="form-label">End date *</label>

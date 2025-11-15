@@ -264,6 +264,31 @@ const MovieManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validate: endDate phải >= releaseDate
+    if (formData.releaseDate && formData.endDate) {
+      const release = new Date(formData.releaseDate);
+      const end = new Date(formData.endDate);
+      release.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      
+      if (end < release) {
+        showMessage("error", "Ngày kết thúc khởi chiếu phải sau hoặc bằng ngày ra mắt");
+        return;
+      }
+    }
+
+    // Validate: title không được rỗng
+    if (!formData.title || !formData.title.trim()) {
+      showMessage("error", "Tên phim không được để trống");
+      return;
+    }
+
+    // Validate: duration phải > 0
+    if (!formData.duration || Number(formData.duration) <= 0) {
+      showMessage("error", "Thời lượng phim phải lớn hơn 0");
+      return;
+    }
+
     // genre và cast = array
     const genreArray = formData.genre
       ? Array.isArray(formData.genre)

@@ -133,6 +133,49 @@ const ShowtimeManagement = () => {
 };
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Auto-update showtime status to 'completed' when endTime has passed
+  useEffect(() => {
+    const checkAndUpdateShowtimes = async () => {
+      const now = new Date();
+      const showtimesToUpdate = state.showtimes.filter(showtime => {
+        if (showtime.status === 'completed' || showtime.status === 'cancelled') return false;
+        const endTime = new Date(showtime.endTime);
+        return endTime < now;
+      });
+
+      if (showtimesToUpdate.length > 0) {
+        let updated = false;
+        for (const showtime of showtimesToUpdate) {
+          try {
+            await fetch(`${API_BASE}/showtimes/${showtime._id}`, {
+              method: 'PUT',
+              headers: getHeaders(),
+              body: JSON.stringify({ ...showtime, status: 'completed' }),
+            });
+            updated = true;
+          } catch (error) {
+            console.error('Error updating showtime status:', error);
+          }
+        }
+        // Only refresh if actually updated
+        if (updated) {
+          fetchData();
+        }
+      }
+    };
+
+    // Check every 5 minutes instead of every minute to reduce load
+    const interval = setInterval(checkAndUpdateShowtimes, 300000); // 5 minutes
+    
+    // Check once on mount, but with a delay to avoid conflicting with initial fetch
+    const timeoutId = setTimeout(checkAndUpdateShowtimes, 2000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeoutId);
+    };
+  }, []); // Empty dependency array - only run on mount/unmount
+
   // Filter theaters by selected branch
   const filteredTheaters = state.theaters.filter(theater => 
     !state.formData.branch || theater.branch === state.formData.branch || theater.branch?._id === state.formData.branch
