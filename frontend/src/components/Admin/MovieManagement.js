@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   Plus,
@@ -14,6 +15,10 @@ import AdminLayout from "./AdminLayout";
 import "../style/movieManagement.css";
 
 const MovieManagement = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightId = searchParams.get('id');
+  const shouldHighlight = searchParams.get('highlight') === 'true';
+  
   const [movies, setMovies] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -195,6 +200,22 @@ const MovieManagement = () => {
   useEffect(() => {
     fetchMovies();
   }, [fetchMovies]);
+
+  // Handle highlight from search
+  useEffect(() => {
+    if (highlightId && shouldHighlight && movies.length > 0) {
+      const movieElement = document.getElementById(`movie-${highlightId}`);
+      if (movieElement) {
+        movieElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        movieElement.classList.add('highlight-pulse');
+        setTimeout(() => {
+          movieElement.classList.remove('highlight-pulse');
+          // Clear URL params after highlight
+          setSearchParams({});
+        }, 3000);
+      }
+    }
+  }, [highlightId, shouldHighlight, movies, setSearchParams]);
 
   // Search functionality
   useEffect(() => {
@@ -454,6 +475,7 @@ const MovieManagement = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredMovies.map((movie) => (
               <div
+                id={`movie-${movie._id}`}
                 key={movie._id}
                 className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
               >

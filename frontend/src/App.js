@@ -19,7 +19,7 @@ import ComboManagement from './components/Admin/ComboManagement';
 import TheaterManagement from './components/Admin/TheaterManagement';
 import ShowtimeManagement from './components/Admin/ShowtimeManagement';
 import UserManagement from './components/Admin/UserManagement';
-import ShowtimeList from './components/ShowtimeList'; // ✅ Thêm dòng này
+import ShowtimeList from './components/ShowtimeList';
 import PurchasePage from './components/PurchasePage';
 import UserPurchaseHistory from './components/UserPurchaseHistory';
 import CheckInPage from './components/Employee/CheckInPage';
@@ -36,6 +36,7 @@ import './style/changePassword.css';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import { ProtectedRoute, AdminRoute, EmployeeRoute } from './components/ProtectedRoute';
 
 const AppInner = () => {
   const { isAuthenticated, isAdmin, getUserRole } = useAuth();
@@ -44,12 +45,15 @@ const AppInner = () => {
   return (
     <Router>
       <Routes>
+        {/* Home - Public Route (Guest có thể truy cập) */}
+        <Route path="/" element={<HomePage />} />
+
         {/* Login */}
         <Route 
-          path="/" 
+          path="/login" 
           element={
             isAuthenticated 
-              ? (isAdmin ? <Navigate to="/admin" /> : (isEmployee ? <Navigate to="/employee" /> : <Navigate to="/home" />))
+              ? (isAdmin ? <Navigate to="/admin" /> : (isEmployee ? <Navigate to="/employee" /> : <Navigate to="/" />))
               : <Login />
           } 
         />
@@ -57,31 +61,13 @@ const AppInner = () => {
         {/* Register */}
         <Route
           path="/register"
-          element={isAuthenticated ? <Navigate to="/home" /> : <Register />} 
-        />
-
-        {/* Home */}
-        <Route 
-          path="/home" 
-          element={isAuthenticated ? <HomePage /> : <Navigate to="/"/>} 
-        />
-
-        {/* Profile */}
-        <Route 
-          path="/profile" 
-          element={isAuthenticated ? <Profile /> : <Navigate to="/" />} 
-        />
-
-        {/* Change Password */}
-        <Route 
-          path="/change-password" 
-          element={isAuthenticated ? <ChangePassword /> : <Navigate to="/" />} 
+          element={isAuthenticated ? <Navigate to="/" /> : <Register />} 
         />
 
         {/* Forgot Password */}
         <Route 
           path="/forgot-password" 
-          element={isAuthenticated ? <Navigate to="/home" /> : <ForgotPassword />} 
+          element={isAuthenticated ? <Navigate to="/" /> : <ForgotPassword />} 
         />
 
         {/* Reset Password */}
@@ -90,68 +76,81 @@ const AppInner = () => {
           element={<ResetPassword />} 
         />
 
-        {/* Public Routes */}
-        <Route path="/movies" element={isAuthenticated ? <MoviesPage /> : <Navigate to="/"/>} />
-        <Route path="/movies/:id" element={isAuthenticated ? <MovieDetail /> : <Navigate to="/"/>} />
-        <Route path="/booking/:movieId" element={isAuthenticated ? <BookingFlow /> : <Navigate to="/"/>} />
-        <Route path="/purchase/:bookingId" element={isAuthenticated ? <PurchasePage /> : <Navigate to="/"/>} />
-        <Route path="/purchase-history" element={isAuthenticated ? <UserPurchaseHistory /> : <Navigate to="/"/>} />
-        <Route path="/cinemas" element={isAuthenticated ? <div>Cinemas Page - Coming Soon</div> : <Navigate to="/"/>} />
+        {/* Public Routes - Guest có thể xem */}
+        <Route path="/movies" element={<MoviesPage />} />
+        <Route path="/movies/:id" element={<MovieDetail />} />
+        <Route path="/showtimes" element={<ShowtimeList />} />
 
-        {/* ✅ Sửa route này để hiển thị ShowtimeList thay vì "Coming Soon" */}
+        {/* Protected Routes - Cần đăng nhập */}
         <Route 
-          path="/showtimes" 
-          element={isAuthenticated ? <ShowtimeList /> : <Navigate to="/"/>} 
+          path="/profile" 
+          element={<ProtectedRoute><Profile /></ProtectedRoute>} 
         />
-
-        {/* Payment return/cancel routes for PayOS redirects */}
-        <Route path="/payment/return" element={isAuthenticated ? <PaymentReturn /> : <Navigate to="/"/>} />
-        <Route path="/payment/cancel" element={isAuthenticated ? <PaymentCancel /> : <Navigate to="/"/>} />
+        <Route 
+          path="/change-password" 
+          element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/booking/:movieId" 
+          element={<ProtectedRoute><BookingFlow /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/purchase/:bookingId" 
+          element={<ProtectedRoute><PurchasePage /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/purchase-history" 
+          element={<ProtectedRoute><UserPurchaseHistory /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/payment/return" 
+          element={<ProtectedRoute><PaymentReturn /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/payment/cancel" 
+          element={<ProtectedRoute><PaymentCancel /></ProtectedRoute>} 
+        />
 
         {/* Admin Routes */}
         <Route 
           path="/admin" 
-          element={isAdmin ? <AdminDashboard /> : <Navigate to="/home" />} 
+          element={<AdminRoute><AdminDashboard /></AdminRoute>} 
         />
         <Route 
           path="/admin/branches" 
-          element={isAdmin ? <BranchManagement /> : <Navigate to="/home" />} 
+          element={<AdminRoute><BranchManagement /></AdminRoute>} 
         />
         <Route 
           path="/admin/theaters" 
-          element={isAdmin ? <TheaterManagement /> : <Navigate to="/home" />} 
+          element={<AdminRoute><TheaterManagement /></AdminRoute>} 
         />
         <Route 
           path="/admin/showtimes" 
-          element={isAdmin ? <ShowtimeManagement /> : <Navigate to="/home" />} 
+          element={<AdminRoute><ShowtimeManagement /></AdminRoute>} 
         />
         <Route 
           path="/admin/users" 
-          element={isAdmin ? <UserManagement /> : <Navigate to="/home" />} 
+          element={<AdminRoute><UserManagement /></AdminRoute>} 
         />
         <Route 
           path="/admin/movies" 
-          element={isAdmin ?<MovieManagement /> : <Navigate to="/home" />} 
+          element={<AdminRoute><MovieManagement /></AdminRoute>} 
         />
         <Route 
           path="/admin/items" 
-          element={isAdmin ? <ItemManagement /> : <Navigate to="/home" />} 
+          element={<AdminRoute><ItemManagement /></AdminRoute>} 
         />
         <Route 
           path="/admin/combos" 
-          element={isAdmin ? <ComboManagement /> : <Navigate to="/home" />} 
-        />
-        <Route 
-          path="/admin/settings" 
-          element={isAdmin ? <div>Admin Settings - Coming Soon</div> : <Navigate to="/home" />} 
+          element={<AdminRoute><ComboManagement /></AdminRoute>} 
         />
         <Route 
           path="/admin/vouchers" 
-          element={isAdmin ? <VoucherManagement /> : <Navigate to="/home" />} 
+          element={<AdminRoute><VoucherManagement /></AdminRoute>} 
         />
 
         {/* Employee Routes */}
-        <Route path="/employee" element={isEmployee ? <EmployeeDashboard /> : <Navigate to="/home" />} >
+        <Route path="/employee" element={<EmployeeRoute><EmployeeDashboard /></EmployeeRoute>} >
           <Route index element={<Navigate to="/employee/book-ticket" />} />
           <Route path="book-ticket" element={<EmployeeBookTicket />} />
           <Route path="booking/:movieId" element={<EmployeeBookingFlow />} />
@@ -160,8 +159,8 @@ const AppInner = () => {
           <Route path="purchase/:bookingId" element={<EmployeePurchase />} />
         </Route>
 
-        {/* Backward-compatible path similar to screenshot */}
-        <Route path="/admin/employee-book-ticket" element={isEmployee ? <Navigate to="/employee/book-ticket" /> : <Navigate to="/home" />} />
+        {/* Standalone Check-in Route for Employees */}
+        <Route path="/checkin" element={<EmployeeRoute><CheckInPage /></EmployeeRoute>} />
 
         {/* 404 Route */}
         <Route 
@@ -172,7 +171,7 @@ const AppInner = () => {
                 <h1 className="text-4xl font-bold text-gray-800 mb-4">404</h1>
                 <p className="text-gray-600 mb-4">Trang không tồn tại</p>
                 <button 
-                  onClick={() => window.location.href = '/home'}
+                  onClick={() => window.location.href = '/'}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
                 >
                   Về trang chủ

@@ -405,7 +405,15 @@ export default function UserPurchaseHistory({ employeeView = false }) {
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <button
-                            onClick={() => navigate(`/purchase/${booking._id}`, { state: { fromHistory: true } })}
+                            onClick={() => {
+                              if (employeeView) {
+                                // Employee view: navigate với query param
+                                navigate(`/purchase/${booking._id}?from=employee`, { state: { fromHistory: true } });
+                              } else {
+                                // Customer view: navigate bình thường
+                                navigate(`/purchase/${booking._id}`, { state: { fromHistory: true } });
+                              }
+                            }}
                             className="text-blue-600 hover:text-blue-900 flex items-center gap-0.5 text-xs"
                           >
                             <Eye className="h-3 w-3" />

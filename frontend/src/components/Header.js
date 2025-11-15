@@ -25,13 +25,14 @@ const Header = () => {
     <header className="header">
       <div className="header-content">
         <div className="logo">
-          <Link to="/">
-            <img src="https://dynamic.design.com/asset/logo/d6333ac1-12fb-4695-a153-5238580a8ee6/logo-search-grid-2x?logoTemplateVersion=1&v=638909241779300000&text=Cinema&layout=auto" alt="CGV" />
+          <Link to="/" className="flex items-center gap-2">
+            <span className="text-2xl font-bold text-red-600">🎬</span>
+            <span className="text-2xl font-bold" style={{ color: '#e50914' }}>CineTicket</span>
           </Link>
         </div>
         <nav className="navigation">
+          <Link to="/" className="nav-link">Home</Link>
           <Link to="/movies" className="nav-link">Movies</Link>
-          <Link to="/cinemas" className="nav-link">Cinemas</Link>
           <Link to="/showtimes" className="nav-link">Showtimes</Link>
           {isEmployee && (
             <Link to="/checkin" className="nav-link">
@@ -46,10 +47,25 @@ const Header = () => {
           )}
         </nav>
         <div className="header-actions">
-          
-          
-          {/* User Menu */}
-          <div className="relative">
+          {/* Hiển thị nút Login/Register cho Guest hoặc User Menu cho đã đăng nhập */}
+          {!user ? (
+            <div className="flex items-center gap-3">
+              <Link 
+                to="/login" 
+                className="px-4 py-2 text-gray-700 hover:text-red-600 font-medium transition-colors"
+              >
+                Đăng nhập
+              </Link>
+              <Link 
+                to="/register" 
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors"
+              >
+                Đăng ký
+              </Link>
+            </div>
+          ) : (
+            /* User Menu */
+            <div className="relative">
             <button 
               className="profile-btn-container flex items-center gap-2"
               onClick={() => setShowUserMenu(!showUserMenu)}
@@ -174,7 +190,8 @@ const Header = () => {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
       

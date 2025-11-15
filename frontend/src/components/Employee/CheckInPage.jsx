@@ -73,11 +73,23 @@ export default function CheckInPage() {
 
       if (code) {
         console.log('QR code detected:', code.data);
-        // Tìm Booking ID từ QR code data
+        // Parse QR data để lấy bookingId
         const qrData = code.data;
         if (qrData) {
-          setQrCodeData(qrData);
-          handleScanQRWithData(qrData);
+          // Nếu QR là JSON, parse và lấy bookingId
+          let bookingIdToUse = qrData;
+          try {
+            const parsed = JSON.parse(qrData);
+            if (parsed.bookingId) {
+              bookingIdToUse = parsed.bookingId;
+            }
+          } catch (e) {
+            // Nếu không phải JSON, sử dụng trực tiếp
+            bookingIdToUse = qrData;
+          }
+          
+          setQrCodeData(bookingIdToUse);
+          handleScanQRWithData(bookingIdToUse);
           stopCamera();
         }
       }
@@ -150,7 +162,20 @@ export default function CheckInPage() {
 
   // Scan với dữ liệu QR code hoặc Booking ID
   const handleScanQRWithData = async (data = null) => {
-    const dataToScan = data || qrCodeData.trim();
+    let dataToScan = data || qrCodeData.trim();
+    
+    // Parse JSON nếu cần
+    if (dataToScan) {
+      try {
+        const parsed = JSON.parse(dataToScan);
+        if (parsed.bookingId) {
+          dataToScan = parsed.bookingId;
+        }
+      } catch (e) {
+        // Không phải JSON, sử dụng trực tiếp
+      }
+    }
+    
     if (!dataToScan) {
       setNotification({ type: 'error', message: 'Vui lòng quét QR code hoặc nhập Booking ID' });
       return;
@@ -171,8 +196,29 @@ export default function CheckInPage() {
       const response = await axios.post(`${API_BASE}/bookings/checkin/qr`, { qrCodeData: dataToScan }, headers);
 
       if (response.data.success) {
-        setBooking(response.data.booking);
-        setNotification({ type: 'success', message: 'Đã phát hiện QR code!' });
+        const bookingData = response.data.booking;
+        setBooking(bookingData);
+        
+        // Kiểm tra trạng thái check-in
+        const now = new Date();
+        const showtimeStart = new Date(bookingData.showtime?.startTime);
+        const showtimeEnd = new Date(bookingData.showtime?.endTime);
+        const checkInWindow = new Date(showtimeStart.getTime() - 60 * 60 * 1000);
+        
+        if (now > showtimeEnd && !bookingData.checkedIn) {
+          setNotification({ 
+            type: 'error', 
+            message: 'Vé đã hết hạn! Suất chiếu đã kết thúc.' 
+          });
+        } else if (now < checkInWindow) {
+          const checkInTime = checkInWindow.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+          setNotification({ 
+            type: 'warning', 
+            message: `Đã tìm thấy vé! Check-in sẽ mở từ ${checkInTime}.` 
+          });
+        } else {
+          setNotification({ type: 'success', message: 'Đã phát hiện QR code! Vé hợp lệ.' });
+        }
       }
     } catch (err) {
       const message = err?.response?.data?.message || 'Không tìm thấy thông tin vé';
@@ -189,6 +235,31 @@ export default function CheckInPage() {
 
   const handleCheckIn = async () => {
     if (!booking || !qrCodeData.trim()) {
+      return;
+    }
+
+    // Validate thời gian check-in: cho phép từ 1 tiếng trước đến khi phim kết thúc
+    const now = new Date();
+    const showtimeStart = new Date(booking.showtime?.startTime);
+    const showtimeEnd = new Date(booking.showtime?.endTime);
+    const checkInWindow = new Date(showtimeStart.getTime() - 60 * 60 * 1000); // 1 tiếng trước
+    
+    // Kiểm tra vé đã hết hạn (phim đã kết thúc)
+    if (now > showtimeEnd) {
+      setNotification({ 
+        type: 'error', 
+        message: 'Vé đã hết hạn! Suất chiếu đã kết thúc.' 
+      });
+      return;
+    }
+    
+    // Kiểm tra check-in quá sớm (trước 1 tiếng)
+    if (now < checkInWindow) {
+      const checkInTime = checkInWindow.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      setNotification({ 
+        type: 'error', 
+        message: `Chưa thể check-in! Vui lòng quay lại sau ${checkInTime}.` 
+      });
       return;
     }
 
@@ -213,6 +284,8 @@ export default function CheckInPage() {
           setQrCodeData('');
           setBooking(null);
           setNotification(null);
+          // Restart camera để quét vé tiếp
+          startCamera();
         }, 3000);
       }
     } catch (err) {
@@ -270,6 +343,8 @@ export default function CheckInPage() {
           <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
             notification.type === 'success' 
               ? 'bg-green-100 text-green-800 border border-green-300' 
+              : notification.type === 'warning'
+              ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
               : 'bg-red-100 text-red-800 border border-red-300'
           }`}>
             {notification.type === 'success' ? (
@@ -449,9 +524,14 @@ export default function CheckInPage() {
                   <div className="flex justify-between py-2 border-b">
                     <span className="text-gray-600">Trạng thái check-in:</span>
                     <span className={`font-semibold ${
-                      booking.checkedIn ? 'text-green-600' : 'text-yellow-600'
+                      booking.checkedIn 
+                        ? 'text-green-600' 
+                        : (new Date(booking.showtime?.endTime) < new Date() ? 'text-red-600' : 'text-yellow-600')
                     }`}>
-                      {booking.checkedIn ? 'Đã check-in' : 'Chưa check-in'}
+                      {booking.checkedIn 
+                        ? 'Đã check-in' 
+                        : (new Date(booking.showtime?.endTime) < new Date() ? 'Hết hạn' : 'Chưa check-in')
+                      }
                     </span>
                   </div>
                   {booking.checkedIn && booking.checkedInAt && (
@@ -475,25 +555,63 @@ export default function CheckInPage() {
                 )}
 
                 {/* Check-in Button */}
-                {!booking.checkedIn && booking.paymentStatus === 'completed' && (
-                  <button
-                    onClick={handleCheckIn}
-                    disabled={processing}
-                    className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {processing ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        Đang xử lý...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-5 w-5" />
-                        Xác nhận Check-in
-                      </>
-                    )}
-                  </button>
-                )}
+                {!booking.checkedIn && booking.paymentStatus === 'completed' && (() => {
+                  const now = new Date();
+                  const showtimeStart = new Date(booking.showtime?.startTime);
+                  const showtimeEnd = new Date(booking.showtime?.endTime);
+                  const checkInWindow = new Date(showtimeStart.getTime() - 60 * 60 * 1000);
+                  
+                  // Vé đã hết hạn
+                  if (now > showtimeEnd) {
+                    return (
+                      <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-red-800">
+                          <XCircle className="h-5 w-5" />
+                          <span className="font-semibold">Vé đã hết hạn</span>
+                        </div>
+                        <p className="text-sm text-red-700 mt-1">
+                          Suất chiếu đã kết thúc lúc {formatTime(booking.showtime?.endTime)}. Không thể check-in vé này.
+                        </p>
+                      </div>
+                    );
+                  }
+                  
+                  // Check-in quá sớm (trước 1 tiếng)
+                  if (now < checkInWindow) {
+                    return (
+                      <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-yellow-800">
+                          <XCircle className="h-5 w-5" />
+                          <span className="font-semibold">Chưa thể check-in</span>
+                        </div>
+                        <p className="text-sm text-yellow-700 mt-1">
+                          Check-in sẽ mở từ {formatTime(checkInWindow)} (1 tiếng trước giờ chiếu).
+                        </p>
+                      </div>
+                    );
+                  }
+                  
+                  // Trong khoảng thời gian check-in hợp lệ
+                  return (
+                    <button
+                      onClick={handleCheckIn}
+                      disabled={processing}
+                      className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {processing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-5 w-5" />
+                          Xác nhận Check-in
+                        </>
+                      )}
+                    </button>
+                  );
+                })()}
 
                 {booking.checkedIn && (
                   <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">

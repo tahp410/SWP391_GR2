@@ -870,24 +870,28 @@ export const checkInTicket = async (req, res) => {
       });
     }
     
-    // Kiểm tra showtime đã bắt đầu chưa (có thể cho phép check-in trước 30 phút)
+    // Kiểm tra thời gian check-in: cho phép từ 1 tiếng trước giờ chiếu đến khi phim kết thúc
     const showtime = booking.showtime;
     const now = new Date();
     const showtimeStart = new Date(showtime.startTime);
-    const checkInWindow = new Date(showtimeStart.getTime() - 30 * 60 * 1000); // 30 phút trước khi bắt đầu
+    const showtimeEnd = new Date(showtime.endTime);
+    const checkInWindow = new Date(showtimeStart.getTime() - 60 * 60 * 1000); // 1 tiếng (60 phút) trước khi bắt đầu
     
-    if (now < checkInWindow) {
+    // Kiểm tra vé đã hết hạn (phim đã kết thúc)
+    if (now > showtimeEnd) {
       return res.status(400).json({ 
-        message: `Check-in available from ${checkInWindow.toLocaleString('vi-VN')}`,
-        booking: booking
+        message: "Vé đã hết hạn. Suất chiếu đã kết thúc.",
+        booking: booking,
+        expired: true
       });
     }
     
-    // Kiểm tra showtime đã kết thúc chưa
-    if (now > new Date(showtime.endTime)) {
+    // Kiểm tra check-in quá sớm (trước 1 tiếng)
+    if (now < checkInWindow) {
       return res.status(400).json({ 
-        message: "Showtime has already ended",
-        booking: booking
+        message: `Chưa thể check-in. Vui lòng quay lại sau ${checkInWindow.toLocaleString('vi-VN')}`,
+        booking: booking,
+        tooEarly: true
       });
     }
     
