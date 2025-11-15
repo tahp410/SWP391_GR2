@@ -22,9 +22,31 @@ export default function BookingFlow() {
   const [movie, setMovie] = useState(null);
   const [voucherDiscount, setVoucherDiscount] = useState(0);
   const [voucherMsg, setVoucherMsg] = useState('');
-  const token = localStorage.getItem('token');
+  const [token, setToken] = useState(() => localStorage.getItem('token') || sessionStorage.getItem('token'));
   const userJson = localStorage.getItem('user');
   const user = userJson ? JSON.parse(userJson) : null;
+
+  // Update token when it changes in localStorage/sessionStorage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const newToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+      setToken(newToken);
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    // Also check on component mount/focus
+    const interval = setInterval(() => {
+      const newToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (newToken !== token) {
+        setToken(newToken);
+      }
+    }, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [token]);
 
   // Smooth back behavior when coming from PayOS cancel
   const fromCancel = (() => {

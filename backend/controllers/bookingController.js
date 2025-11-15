@@ -325,6 +325,7 @@ export const getBookingById = async (req, res) => {
     const userId = req.user?._id || null;
     
     const booking = await Booking.findById(id)
+      .select("+checkedIn +checkedInAt")
       .populate("user", "name email")
       .populate("showtime")
       .populate({
@@ -342,8 +343,13 @@ export const getBookingById = async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
     
-    // Check if user owns this booking (unless admin)
-    if (userId && String(booking.user?._id || booking.user) !== String(userId) && req.user?.role !== 'admin') {
+    // Allow access if:
+    // - User is the booking owner
+    // - User is admin or employee (staff can view any booking for check-in)
+    const isOwner = userId && String(booking.user?._id || booking.user) === String(userId);
+    const isStaff = req.user?.role === 'admin' || req.user?.role === 'employee';
+    
+    if (userId && !isOwner && !isStaff) {
       return res.status(403).json({ message: "Unauthorized" });
     }
     
@@ -402,7 +408,11 @@ export const generatePaymentQR = async (req, res) => {
 
     // Mark booking as pending and store transaction/order code
     booking.transactionId = String(orderCode);
-    booking.paymentMethod = "bank_transfer";
+    // Keep the original paymentMethod (should be 'qr' for employee counter booking or 'credit_card'/'momo'/etc for online)
+    // Don't override it to bank_transfer
+    if (!booking.paymentMethod) {
+      booking.paymentMethod = "bank_transfer";  // fallback if not set
+    }
     booking.paymentStatus = "pending";
     booking.bookingStatus = "pending";
     await booking.save();
@@ -502,6 +512,7 @@ export const cancelPayment = async (req, res) => {
 export const confirmCashPayment = async (req, res) => {
   try {
     const { bookingId } = req.body;
+    const employeeId = req.user?._id;
     
     if (!bookingId) {
       return res.status(400).json({ message: "bookingId is required" });
@@ -512,21 +523,30 @@ export const confirmCashPayment = async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
     
-    // Chỉ cho phép xác nhận thanh toán tiền mặt
-    if (booking.paymentMethod !== 'cash') {
-      return res.status(400).json({ message: "This endpoint is only for cash payments" });
+    // Cho phép xác nhận thanh toán cho cả cash và qr (bank transfer) tại quầy
+    if (!['cash', 'qr'].includes(booking.paymentMethod)) {
+      return res.status(400).json({ message: "This endpoint is only for cash and bank transfer payments at counter" });
     }
     
-    // Chỉ cho phép xác nhận khi chưa thanh toán
-    if (booking.paymentStatus === "completed") {
-      return res.status(400).json({ message: "Payment already completed" });
+    // Cho phép check-in ngay cả khi payment đã completed (vì webhook PayOS set completed trước)
+    // Nhưng nếu checkedIn đã true thì không cần xác nhận lại
+    if (booking.checkedIn) {
+      return res.status(400).json({ message: "Ticket already checked in" });
+    }
+    
+    // Nếu payment chưa completed, set nó
+    if (booking.paymentStatus !== "completed") {
+      booking.paymentStatus = "completed";
+      booking.bookingStatus = "confirmed";
     }
     
     const showtimeId = booking.showtime?._id || booking.showtime;
     
-    // Mark payment as completed
-    booking.paymentStatus = "completed";
-    booking.bookingStatus = "confirmed";
+    // Auto check-in cho vé được đặt bởi employee tại quầy (cả cash và qr/bank transfer)
+    booking.checkedIn = true;
+    booking.checkedInAt = new Date();
+    booking.employeeId = employeeId;
+    booking.bookingStatus = "completed";  // ← Set to completed khi check-in
     
     // Generate ticket QR code for check-in
     const ticketQRData = JSON.stringify({
@@ -539,7 +559,6 @@ export const confirmCashPayment = async (req, res) => {
     
     try {
       booking.ticketQRCode = await QRCode.toDataURL(ticketQRData);
-      console.log("Ticket QR code generated successfully for booking:", booking._id.toString());
     } catch (qrErr) {
       console.error("Ticket QR code generation error:", qrErr);
     }
@@ -606,6 +625,7 @@ export const getUserPurchaseHistory = async (req, res) => {
     }
     
     const bookings = await Booking.find({ user: userId })
+      .select("+checkedIn +checkedInAt") // Ensure these fields are included
       .populate("showtime")
       .populate({
         path: "showtime",
@@ -637,6 +657,7 @@ export const getAllPurchaseHistory = async (req, res) => {
     if (paymentStatus) filter.paymentStatus = paymentStatus;
     
     const bookings = await Booking.find(filter)
+      .select("+checkedIn +checkedInAt") // Ensure these fields are included
       .populate("user", "name email phone role")
       .populate("showtime")
       .populate({

@@ -38,6 +38,35 @@ export default function EmployeePurchase() {
     fetchBooking();
   }, [fetchBooking]);
 
+  // Auto check-in when returning from PayOS payment
+  useEffect(() => {
+    if (!location.state?.fromPayOS || !bookingId || !token) {
+      return;
+    }
+    
+    const autoCheckIn = async () => {
+      try {
+        const response = await axios.post(
+          `${API_BASE}/bookings/payment/confirm-cash`,
+          { bookingId },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        
+        if (response.data.success) {
+          setNotification({
+            type: 'success',
+            message: 'Thanh toán thành công! Vé đã được check-in.'
+          });
+          await fetchBooking();
+        }
+      } catch (err) {
+        // Auto check-in error - don't show notification
+      }
+    };
+    
+    autoCheckIn();
+  }, [location.state?.fromPayOS, bookingId, token, fetchBooking]);
+
   useEffect(() => {
     if (!booking) return;
     if (booking.paymentMethod === 'cash') return;
@@ -185,6 +214,24 @@ export default function EmployeePurchase() {
       Quay về
     </button>
   );
+
+  // Kiểm tra vé hết hạn (đã qua giờ chiếu nhưng chưa check-in)
+  const isTicketExpired = (booking) => {
+    if (booking.checkedIn) return false; // Nếu đã check-in thì không hết hạn
+    const showtimeEndTime = new Date(booking.showtime?.endTime);
+    return showtimeEndTime < new Date();
+  };
+
+  // Lấy trạng thái check-in cho hiển thị
+  const getCheckInStatus = (booking) => {
+    if (booking.checkedIn) {
+      return { label: 'Đã check-in', color: 'text-green-600' };
+    }
+    if (isTicketExpired(booking)) {
+      return { label: 'Hết hạn', color: 'text-red-600' };
+    }
+    return { label: 'Chưa check-in', color: 'text-yellow-600' };
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -640,6 +687,12 @@ export default function EmployeePurchase() {
                       : booking.paymentStatus === 'pending'
                       ? 'Đang xử lý'
                       : 'Chưa thanh toán'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Trạng thái check-in:</span>
+                  <span className={`font-semibold ${getCheckInStatus(booking).color}`}>
+                    {getCheckInStatus(booking).label}
                   </span>
                 </div>
               </div>
