@@ -28,7 +28,7 @@ export default function PaymentCancel() {
       if (from === 'employee') {
         return navigate('/employee', { replace: true });
       }
-      return navigate('/home', { replace: true });
+      return navigate('/', { replace: true });
     };
 
     const cancelIfNeeded = async () => {

@@ -82,7 +82,7 @@ export default function PurchasePage() {
     }
   }, [paymentStatus, ticketQRCode, fetchBooking]);
 
-  // Step 1: Generate PayOS payment link (and render as QR)
+  // Step 1: Generate PayOS payment link and redirect to PayOS
   const handleGenerateQR = async () => {
     setProcessing(true);
     setNotification(null);
@@ -104,23 +104,22 @@ export default function PurchasePage() {
       if (response.data?.success) {
         const payUrl = response.data.paymentUrl || null;
   
-        // Hiển thị QR code và link thanh toán ngay trên trang
-        setPaymentUrl(payUrl);
-        setShowQRCode(Boolean(payUrl));
-        
-        setNotification({
-          type: 'success',
-          message: payUrl
-            ? 'Mã thanh toán đã được tạo. Quét mã QR hoặc nhấn nút bên dưới để thanh toán.'
-            : 'PayOS link generated.'
-        });
+        // Chuyển thẳng sang trang thanh toán PayOS
+        if (payUrl) {
+          window.location.href = payUrl;
+        } else {
+          setNotification({
+            type: 'error',
+            message: 'Không thể tạo link thanh toán. Vui lòng thử lại.'
+          });
+        }
       }
     } catch (err) {
       const message = err?.response?.data?.message || 'Failed to create PayOS link';
       setNotification({ type: 'error', message });
-    } finally {
       setProcessing(false);
     }
+    // Không setProcessing(false) nếu redirect thành công vì trang sẽ chuyển đi
   };
   
 
@@ -163,7 +162,7 @@ export default function PurchasePage() {
           <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <p className="text-gray-600 mb-4">Booking not found</p>
           <button
-            onClick={() => navigate(isEmployee ? '/employee' : '/home')}
+            onClick={() => navigate(isEmployee ? '/employee' : '/')}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
             {isEmployee ? 'Quay về trang nhân viên' : 'Go to Home'}
@@ -363,72 +362,15 @@ export default function PurchasePage() {
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-semibold mb-4">Thanh toán PayOS</h2>
                 <p className="text-sm text-gray-600 mb-4">
-                  Nhấn "Tạo link PayOS" để tạo mã thanh toán. Thông tin thanh toán sẽ hiển thị ngay trên trang này.
+                  Nhấn "Tạo link PayOS" để chuyển đến trang thanh toán của PayOS.
                 </p>
                 <button
                   onClick={handleGenerateQR}
                   disabled={processing}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
-                  {processing ? 'Đang tạo...' : 'Tạo link PayOS'}
+                  {processing ? 'Đang chuyển hướng...' : '✓ Tạo link PayOS'}
                 </button>
-              </div>
-            )}
-
-            {/* PayOS QR Display - Hiển thị ngay trên trang (Only for customers) */}
-            {!isEmployee && showQRCode && paymentStatus !== 'completed' && paymentStatus !== 'success' && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold mb-4 text-blue-600">Thông tin thanh toán</h2>
-
-                <div className="flex flex-col items-center justify-center py-4">
-                  <div className="bg-white p-4 rounded-lg border-2 border-blue-500 shadow-lg mb-4">
-                    {paymentUrl ? <QRCodeSVG value={paymentUrl} size={280} /> : null}
-                  </div>
-
-                  <div className="text-center mb-4">
-                    <p className="text-sm text-gray-700 font-medium mb-2">
-                      Quét mã QR bằng ứng dụng ngân hàng
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      hoặc nhấn nút bên dưới để mở trang thanh toán
-                    </p>
-                  </div>
-
-                  {paymentUrl && (
-                    <a
-                      href={paymentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors text-center"
-                    >
-                      Mở trang thanh toán PayOS
-                    </a>
-                  )}
-
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg w-full border border-blue-200">
-                    <h3 className="text-sm font-semibold text-blue-900 mb-2">Thông tin đơn hàng</h3>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Booking ID:</span>
-                        <span className="font-medium text-gray-900">{booking._id.substring(0, 12)}...</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Số tiền:</span>
-                        <span className="font-bold text-blue-600">{booking.totalAmount.toLocaleString()}đ</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Ghế:</span>
-                        <span className="font-medium text-gray-900">
-                          {booking.seats?.map(s => `${s.row}${s.number}`).join(', ')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-gray-500 mt-4 text-center">
-                    Sau khi thanh toán thành công, trang sẽ tự động cập nhật và hiển thị mã QR vé của bạn.
-                  </p>
-                </div>
               </div>
             )}
 
@@ -538,7 +480,7 @@ export default function PurchasePage() {
                       </button>
                     ) : null}
                     <button
-                      onClick={() => navigate('/home')}
+                      onClick={() => navigate('/')}
                       className="w-full bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300"
                     >
                       Go to Home
