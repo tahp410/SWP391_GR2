@@ -8,7 +8,7 @@ export default function EmployeeDashboard() {
   const { isEmployee, logout } = useAuth();
 
   if (!isEmployee) {
-    return <Navigate to="/home" />;
+    return <Navigate to="/" />;
   }
 
   const active = (path) => (location.pathname.startsWith(path) ? 'emp-nav-item active' : 'emp-nav-item');
