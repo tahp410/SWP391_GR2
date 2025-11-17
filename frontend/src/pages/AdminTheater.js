@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Mail, Lock, Film, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import axiosClient from '../api/axiosClient';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -75,22 +76,12 @@ const Login = () => {
     setErrors({});
 
     try {
-      const response = await fetch('http://localhost:5000/api/users/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      const response = await axiosClient.post('/users/login', {
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Đăng nhập thất bại');
-      }
+      const data = response.data;
 
       // Lưu thông tin user và token
       const userData = {
@@ -275,7 +266,21 @@ const Login = () => {
                 <button
                   type="button"
                   className="text-yellow-400 hover:text-yellow-300 font-medium transition-colors"
-                  onClick={() => navigate('/Register')}>
+                  onClick={() => navigate('/register')}
+                >
+                  Đăng ký ngay
+                </button>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+
+
+export default Login;};  );    </div>                  onClick={() => navigate('/Register')}>
                   Đăng ký ngay
                 </button>
               </p>

@@ -51,7 +51,7 @@ const bookingSchema = mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["momo", "zalopay", "credit_card", "bank_transfer","cash"],
+      enum: ["momo", "zalopay", "credit_card", "bank_transfer", "cash", "qr"],
     },
     paymentStatus: {
       type: String,

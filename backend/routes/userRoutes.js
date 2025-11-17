@@ -11,7 +11,9 @@ import {
   addUser,
   updateUser,
   deleteUser,
-  registerUser
+  registerUser,
+  lockUser,
+  unlockUser
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -34,5 +36,9 @@ router.get("/", protect, adminOnly, getAllUsers);
 router.post("/", protect, adminOnly, addUser);
 router.put("/:id", protect, adminOnly, updateUser);
 router.delete("/:id", protect, adminOnly, deleteUser);
+
+// Lock/Unlock user (Admin)
+router.put("/:id/lock", protect, adminOnly, lockUser);
+router.put("/:id/unlock", protect, adminOnly, unlockUser);
 
 export default router;
